@@ -4,7 +4,7 @@
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "03ef172a4680850963d35d5f96d354cd",
+    "hash": "4c85ab71133c523a13af42eb22f3e930",
     "packages": [
         {
             "name": "andrewmile/fm-hash",
@@ -362,48 +362,6 @@
             "description": "The Illuminate Support package.",
             "homepage": "http://laravel.com",
             "time": "2015-04-15 19:26:55"
-        },
-        {
-            "name": "matatirosoln/filemaker-api",
-            "version": "dev-master",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/matatirosolutions/filemakerapi.git",
-                "reference": "b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/matatirosolutions/filemakerapi/zipball/b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf",
-                "reference": "b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=5.3.0"
-            },
-            "type": "library",
-            "autoload": {
-                "classmap": [
-                    "FileMaker.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "proprietary"
-            ],
-            "authors": [
-                {
-                    "name": "FileMaker Inc",
-                    "email": "filemaker@filemaker.com",
-                    "homepage": "http://filemaker.com"
-                }
-            ],
-            "description": "FileMaker PHP API",
-            "keywords": [
-                "FileMaker",
-                "PHP API",
-                "cwp"
-            ],
-            "time": "2015-03-16 23:13:50"
         },
         {
             "name": "nesbot/carbon",
@@ -1293,9 +1251,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "matatirosoln/filemaker-api": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
