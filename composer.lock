@@ -1,11 +1,47 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "c83e80cc0ee11ae67eac2f0ffda416d2",
+    "hash": "83f3b732dfe6c0bcf09592a7d96a1410",
     "packages": [
+        {
+            "name": "andrewmile/fm-api",
+            "version": "0.1.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/andrewmile/FMAPI.git",
+                "reference": "8fa19f97cf2752eff4af427e92b7d34ed617cf0f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/andrewmile/FMAPI/zipball/8fa19f97cf2752eff4af427e92b7d34ed617cf0f",
+                "reference": "8fa19f97cf2752eff4af427e92b7d34ed617cf0f",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "authors": [
+                {
+                    "name": "Andrew Morgan",
+                    "email": "andrewmile@gmail.com"
+                }
+            ],
+            "description": "FileMaker API for PHP",
+            "keywords": [
+                "FileMaker"
+            ],
+            "time": "2015-05-14 13:47:29"
+        },
         {
             "name": "andrewmile/fm-hash",
             "version": "0.1.2",
@@ -362,48 +398,6 @@
             "description": "The Illuminate Support package.",
             "homepage": "http://laravel.com",
             "time": "2015-04-15 19:26:55"
-        },
-        {
-            "name": "matatirosoln/filemaker-api",
-            "version": "dev-master",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/matatirosolutions/filemakerapi.git",
-                "reference": "b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/matatirosolutions/filemakerapi/zipball/b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf",
-                "reference": "b9c5c0aa2c80296fd3d3393f5962a8d6045b9baf",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=5.3.0"
-            },
-            "type": "library",
-            "autoload": {
-                "classmap": [
-                    "FileMaker.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "proprietary"
-            ],
-            "authors": [
-                {
-                    "name": "FileMaker Inc",
-                    "email": "filemaker@filemaker.com",
-                    "homepage": "http://filemaker.com"
-                }
-            ],
-            "description": "FileMaker PHP API",
-            "keywords": [
-                "FileMaker",
-                "PHP API",
-                "cwp"
-            ],
-            "time": "2015-03-16 23:13:50"
         },
         {
             "name": "nesbot/carbon",
@@ -1293,9 +1287,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "matatirosoln/filemaker-api": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
