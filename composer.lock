@@ -4,7 +4,7 @@
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "4c85ab71133c523a13af42eb22f3e930",
+    "hash": "fd0b5fc3016fac55afab665476727b03",
     "packages": [
         {
             "name": "andrewmile/fm-hash",
@@ -362,6 +362,48 @@
             "description": "The Illuminate Support package.",
             "homepage": "http://laravel.com",
             "time": "2015-04-15 19:26:55"
+        },
+        {
+            "name": "matatirosoln/filemaker-api",
+            "version": "13.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/matatirosolutions/filemakerapi.git",
+                "reference": "b7025dbca41cac5fbdf8e4c7dddf05dfca5552a3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/matatirosolutions/filemakerapi/zipball/b7025dbca41cac5fbdf8e4c7dddf05dfca5552a3",
+                "reference": "b7025dbca41cac5fbdf8e4c7dddf05dfca5552a3",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3.0"
+            },
+            "type": "library",
+            "autoload": {
+                "classmap": [
+                    "FileMaker.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "FileMaker Inc",
+                    "email": "filemaker@filemaker.com",
+                    "homepage": "http://filemaker.com"
+                }
+            ],
+            "description": "FileMaker PHP API",
+            "keywords": [
+                "FileMaker",
+                "PHP API",
+                "cwp"
+            ],
+            "time": "2015-02-20 11:15:09"
         },
         {
             "name": "nesbot/carbon",
