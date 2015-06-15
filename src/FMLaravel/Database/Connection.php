@@ -19,43 +19,44 @@ class Connection extends BaseConnection {
 
 	public function getConnection($type)
 	{
+		$config = $this->config;
+
 		if(isset($this->config[$type]) && $type == 'read') {
-			$this->config = $this->getReadConfig($this->config);
+			$config = $this->getReadConfig($this->config);
 		}
 
 		if(isset($this->config[$type]) && $type == 'write') {
-			$this->config = $this->getWriteConfig($this->config);
+			$config = $this->getWriteConfig($this->config);
 		}
 
 		if(isset($this->config[$type]) && $type == 'script') {
-			$this->config = $this->getScriptConfig($this->config);
+			$config = $this->getScriptConfig($this->config);
 		}
 
-		//If the type passed in is auth, set the config
-		//type to auth so the credentials will be 
-		//overridden with the auth credentials
 		if($type == 'auth') {
-			$this->config['credentials'] = 'session';
+			$config = $this->getAuthConfig($this->config);
 		}
 
-		return $this->createConnection($this->config);
+		return $this->createConnection($config);
 	}
 
 	private function createConnection($config)
 	{
-		//If the config type requires FileMaker authentication, override
-		//the config with the auth credentials from the session.
-		if(isset($config['credentials']) && $config['credentials'] == 'session') {
-			$config['username'] = Session::get('auth.username');
-			$config['password'] = Session::get('auth.password');
-		}
-
 		return new FileMaker(
 			$config['database'],
 			$config['host'],
 			$config['username'],
 			$config['password']
 		);
+	}
+
+	//override the session username and password with session veriables
+	private function getAuthConfig($config)
+	{
+		$config['username'] = Session::get('auth.username');
+		$config['password'] = Session::get('auth.password');
+
+		return $config;
 	}
 
 	private function getReadConfig(array $config)
