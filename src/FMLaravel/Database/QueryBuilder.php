@@ -31,14 +31,14 @@ class QueryBuilder extends Builder {
 		$this->addSortRules();
 		$this->setRange();
 
-		$result = $this->find->execute(); 
-		
+		$result = $this->find->execute();
+
 		$rows = [];
 
 		if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {
 
 			foreach($result->getRecords() as $record) {
-				
+
 				$row = new stdClass();
 
 				foreach($result->getFields() as $field) {
@@ -70,6 +70,8 @@ class QueryBuilder extends Builder {
 
 	private function parseWheres($wheres, $find, $find_type)
 	{
+		if(!$wheres) return;
+
 		foreach($wheres as $where) {
 			if($find_type == 'compound') {
 				$request = $this->connection->getConnection('read')->newFindRequest($this->from);
@@ -125,6 +127,8 @@ class QueryBuilder extends Builder {
 	 */
 	private function containsOr()
 	{
+		if(!$this->wheres) return false;
+
 		return in_array('or', array_pluck($this->wheres, 'boolean'));
 	}
 
