@@ -42,7 +42,9 @@ class QueryBuilder extends Builder {
 				$row = new stdClass();
 
 				foreach($result->getFields() as $field) {
-					$row->$field = $record->getField($field);
+					if($field) {
+						$row->$field = $record->getField($field);
+					}
 				}
 
 				$rows[] = $row;
