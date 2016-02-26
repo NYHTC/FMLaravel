@@ -19,7 +19,9 @@
         "andrewmile/fm-api": "0.1.2"
     },
     "require-dev": {
-        "phpspec/phpspec": "~2.0"
+        "phpspec/phpspec": "~2.0",
+		"phpunit/phpunit": "^5.2",
+		"mockery/mockery": "^0.9.4"
     },
     "autoload": {
 	    "psr-0": {
