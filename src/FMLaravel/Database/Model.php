@@ -1,6 +1,7 @@
 <?php namespace FMLaravel\Database;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
+use FMLaravel\Database\Find;
 
 abstract class Model extends Eloquent {
 
@@ -21,7 +22,7 @@ abstract class Model extends Eloquent {
 	/**
 	 * Get the table qualified key name.
 	 * return plain key name without the table
-	 * 
+	 *
 	 * @return string
 	 */
 	public function getQualifiedKeyName()

@@ -1,8 +1,11 @@
 <?php namespace FMLaravel\Database;
 
 use Illuminate\Database\Query\Builder;
-use \stdClass;
-use FileMaker;
+use FMLaravel\Database\Finds\BasicFind;
+use FMLaravel\Database\Finds\CompoundFind;
+use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Query\Grammars\Grammar;
+use Illuminate\Database\Query\Processors\Processor;
 
 class QueryBuilder extends Builder {
 
@@ -14,46 +17,20 @@ class QueryBuilder extends Builder {
 
 	public $sorts = [];
 
-	public $compoundWhere = 1;
-
 	//this should be the method to get the results
 	public function get($columns = [])
 	{
 		if($this->containsOr()) {
-			$this->find = $this->connection->getConnection('read')->newCompoundFindCommand($this->from);
-			$find_type = 'compound';
+			$this->find = new CompoundFind($this->connection, $this->from);
 		} else {
-			$this->find = $this->connection->getConnection('read')->newFindCommand($this->from);
-			$find_type = 'basic';
+			$this->find = new BasicFind($this->connection, $this->from);
 		}
 
-		$this->parseWheres($this->wheres, $this->find, $find_type);
-		$this->addSortRules();
-		$this->setRange();
+		$this->parseWheres($this->wheres)
+			 ->addSortRules()
+			 ->setRange();
 
-		$result = $this->find->execute();
-
-		$rows = [];
-
-		if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {
-
-			foreach($result->getRecords() as $record) {
-
-				$row = new stdClass();
-
-				foreach($result->getFields() as $field) {
-					if($field) {
-						$row->$field = $record->getField($field);
-					}
-				}
-
-				$rows[] = $row;
-			}
-
-		}
-
-		return $rows;
-
+		return $this->find->execute();
 	}
 
 	public function skip($skip)
@@ -70,27 +47,25 @@ class QueryBuilder extends Builder {
 		return $this;
 	}
 
-	private function parseWheres($wheres, $find, $find_type)
+	private function parseWheres($wheres)
 	{
-		if(!$wheres) return;
+		if(!$wheres) return $this;
 
 		foreach($wheres as $where) {
-			if($find_type == 'compound') {
-				$request = $this->connection->getConnection('read')->newFindRequest($this->from);
-				$this->parseWheres([$where], $request, 'basic');
-				$find->add($this->compoundWhere, $request);
-				$this->compoundWhere++;
-			} else {
-				if($where['type'] == 'Nested') {
-					$this->parseWheres($where['query']->wheres, $find, $find_type);
-				} else {
-			    	$find->AddFindCriterion(
-			    		$where['column'],
-			    		$where['operator'] . $where['value']
-			    	);
-				}
+
+			//if this is a nested find, run it through parseWheres again
+			if($where['type'] == 'Nested') {
+				$this->parseWheres($where['query']->wheres);
 			}
+
+	    	$this->find->addFindCriterion(
+	    		$where['column'],
+	    		$where['operator'],
+	    		$where['value']
+	    	);
 		}
+
+		return $this;
 	}
 
 	public function setRange()
@@ -121,6 +96,8 @@ class QueryBuilder extends Builder {
 			$this->find->addSortRule($field, $i, $order);
 			$i++;
 		}
+
+		return $this;
 	}
 
 	/**
