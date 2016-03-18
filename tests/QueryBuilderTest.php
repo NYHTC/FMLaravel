@@ -16,7 +16,7 @@ class QueryBuilderTest extends PHPUnit_Framework_TestCase
     	$grammar = m::mock('Illuminate\Database\Query\Grammars\Grammar');
     	$processor = m::mock('Illuminate\Database\Query\Processors\Processor');
     	$findCommand = m::mock('FileMaker_Command_Find');
-    	$filemaker = m::mock('FileMaker');
+    	$filemaker = m::mock('alias:FileMaker');
 
     	$result = m::mock('FileMaker_Result');
     	$result->shouldReceive('getFetchCount')->andReturn(1);
