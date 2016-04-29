@@ -83,9 +83,9 @@ abstract class Model extends Eloquent {
 		return $this->asContainerField($key, $this->getAttributeFromArray($key), $loadFromServer);
 	}
 
-	public function asContainerField($key, $resource, $loadFromServer = FALSE){
-		$cf = ContainerField::fromResource($key, $resource, $this);
-		if ($loadFromServer) {
+	public function asContainerField($key, $url, $loadFromServer = FALSE){
+		$cf = ContainerField::fromResource($key, $url, $this);
+		if ($loadFromServer && !empty($url)) {
 			$cf->loadData();
 		}
 		return $cf;

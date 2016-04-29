@@ -111,6 +111,7 @@ In your controller:
     
     // original field is automatically mutated to an instance of class \FMLaravel\Database\ContainerField
     $myContainerField = $model->myContainerField;
+    // NULL is returned, if there is no field
     
     // now you can access the following attributes
     $myContainerField->key == 'myContainerField'; // original attribute name

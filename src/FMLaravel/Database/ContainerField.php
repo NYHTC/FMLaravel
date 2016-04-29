@@ -28,15 +28,16 @@ class ContainerField
      * @return ContainerField
      */
     static public function fromResource($key, $url, Model $model = null) {
+        if (empty($url)){
+            return null;
+        }
+
         $cf = new ContainerField($key, $model);
 
         $cf->container['key'] = $key;
         $cf->container['url'] = $url;
-
-        if (!empty($url)){
-            $cf->container['file'] = basename(substr($url, 0, strpos($url, '?')));
-            $cf->container['mimeType'] = MimeType::detectByFilename($cf->file);
-        }
+        $cf->container['file'] = basename(substr($url, 0, strpos($url, '?')));
+        $cf->container['mimeType'] = MimeType::detectByFilename($cf->file);
 
         return $cf;
     }
