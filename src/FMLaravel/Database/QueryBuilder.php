@@ -33,6 +33,10 @@ class QueryBuilder extends Builder {
 
 		$result = $this->find->execute();
 
+		if (FileMaker::isError($result)){
+			throw FileMakerException::newFromError($result);
+		}
+
 		$rows = [];
 
 		if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {

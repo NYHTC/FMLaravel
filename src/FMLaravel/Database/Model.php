@@ -4,6 +4,9 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 
 abstract class Model extends Eloquent {
 
+	protected $autoloadContainerFields = FALSE;
+	protected $containerFields = [];
+
 	/**
 	 * Get a new query builder instance for the connection.
 	 *
@@ -52,6 +55,40 @@ abstract class Model extends Eloquent {
 	public function setLayout($layout)
 	{
 		$this->layout = $layout;
+	}
+
+
+	/**
+	 * Get a plain attribute (not a relationship).
+	 *
+	 * @param  string  $key
+	 * @return mixed
+	 */
+	public function getAttributeValue($key)
+	{
+		$value = parent::getAttributeValue($key);
+
+		if ($this->isContainerField($key)){
+			$value = $this->asContainerField($key, $value, $this->autoloadContainerFields);
+		}
+
+		return $value;
+	}
+
+	public function isContainerField($key){
+		return in_array($key, $this->containerFields);
+	}
+
+	public function getContainerField($key, $loadFromServer = FALSE){
+		return $this->asContainerField($key, $this->getAttributeFromArray($key), $loadFromServer);
+	}
+
+	public function asContainerField($key, $resource, $loadFromServer = FALSE){
+		$cf = ContainerField::fromResource($key, $resource, $this);
+		if ($loadFromServer) {
+			$cf->loadData();
+		}
+		return $cf;
 	}
 
 }

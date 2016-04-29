@@ -121,4 +121,88 @@ class Connection extends BaseConnection {
 		return array_except(array_merge($config, $merge), array('read', 'write', 'script'));
 	}
 
+
+	/**
+	 * Returns an array of databases that are available with the current
+	 * server settings and the current user name and password
+	 * credentials.
+	 *
+	 * @return array|FileMaker_Error List of database names or an Error object.
+	 */
+	function listDatabases()
+	{
+		return $this->getConnection('read')->listDatabases();
+	}
+
+	/**
+	 * Returns an array of ScriptMaker scripts from the current database that
+	 * are available with the current server settings and the current user
+	 * name and password credentials.
+	 *
+	 * @return array|FileMaker_Error List of script names or an Error object.
+	 */
+	function listScripts()
+	{
+		return $this->getConnection('read')->listScripts();
+	}
+
+	/**
+	 * Returns an array of layouts from the current database that are
+	 * available with the current server settings and the current
+	 * user name and password credentials.
+	 *
+	 * @return array|FileMaker_Error List of layout names or an Error object.
+	 */
+	function listLayouts()
+	{
+		return $this->getConnection('read')->listLayouts();
+	}
+
+
+	/**
+	 * Returns the data for the specified container field.
+	 * Pass in a URL string that represents the file path for the container
+	 * field contents. For example, get the image data from a container field
+	 * named 'Cover Image'. For a FileMaker_Record object named $record,
+	 * URL-encode the path returned by the getField() method.  For example:
+	 *
+	 * <samp>
+	 * <IMG src="img.php?-url=<?php echo urlencode($record->getField('Cover Image')); ?>">
+	 * </samp>
+	 *
+	 * Then as shown below in a line from img.php, pass the URL into
+	 * getContainerData() for the FileMaker object named $fm:
+	 *
+	 * <samp>
+	 * echo $fm->getContainerData($_GET['-url']);
+	 * </samp>
+	 *
+	 * @param string $url URL of the container field contents to get.
+	 *
+	 * @return string Raw field data|FileMaker_Error if remote container field.
+	 */
+	public function getContainerData($url)
+	{
+		return $this->getConnection('read')->getContainerData($url);
+	}
+
+
+	/**
+	 * Returns the fully qualified URL for the specified container field.
+	 * Pass in a URL string that represents the file path for the container
+	 * field contents. For example, get the URL for a container field
+	 * named 'Cover Image'.  For example:
+	 *
+	 * <samp>
+	 * <IMG src="<?php echo $fm->getContainerDataURL($record->getField('Cover Image')); ?>">
+	 * </samp>
+	 *
+	 * @param string $url URL of the container field contents to get.
+	 *
+	 * @return string Fully qualified URL to container field contents
+	 */
+	function getContainerDataURL($url)
+	{
+		return $this->getConnection('read')->getContainerDataURL($url);
+	}
 }

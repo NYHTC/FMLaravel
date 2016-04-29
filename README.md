@@ -76,6 +76,53 @@ In your Model classes you will need to specify the layout that should be used wh
 By default Laravel will assume the primary key of your table is "id".  If you have a different primary key you will need to add the following inside your class:
 
 	protected $primaryKey = 'YourTaskPrimaryKey';
+	
+	
+### Container fields
+
+Container fields do not contain data directly, but references which can come in two forms (also see (the documentation)[http://help.filemaker.com/app/answers/detail/a_id/5812/~/about-publishing-the-contents-of-container-fields-on-the-web]).
+To access container field data you can either make a call to the FileMaker API or have your model handle this for you, whereas the reference typically contains the filename from which the type could be guessed.
+ 
+#### Example using API call:
+
+    // retrieve your model as you normally would
+    $model = MyModel::find(124);
+    
+    // make API call on container field
+    // NOTE this assumed you've set up filemaker as your default database driver
+    $containerData = DB::getContainerData($model->myContainerField);
+    
+    // example route response
+    return response($containerData)->header('Content-Type:','image/png');
+    
+
+#### Example using implicit model functionality:
+
+Extend your model as follows:
+
+    protected $autoloadContainerFields = true; // NOTE only set this if you want to autoload all container fields, which you likely do not want for large resultsets 
+    protected $containerFields = ['myContainerField'];
+    
+    
+In your controller:
+
+    // retrieve your model as you normally would
+    $model = MyModel::find(124);
+    
+    // original field is automatically mutated to an instance of class \FMLaravel\Database\ContainerField
+    $myContainerField = $model->myContainerField;
+    
+    // now you can access the following attributes
+    $myContainerField->key == 'myContainerField'; // original attribute name
+    $myContainerField->url == '/fmi/xml/cnt/myImageFile.png? etc etc'; // original attribute value
+    $myContainerField->file == 'myImageFile.png';
+    $myContainerField->mimeType == 'image/png';
+    $myContainerField->data == you-binary-image-data // NOTE if you have specified to NOT autoload container data a request to the server will be triggered before it is returned. 
+    
+NOTE
+currently automatically transformed container fields are mutated on the fly and not cached which means that every call to the model's container attribute would potentially trigger a request to the server, so please think about about your data usage.
+
+
 
 ## Querying a table
 
