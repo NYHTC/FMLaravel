@@ -33,7 +33,7 @@ class Connection extends BaseConnection {
 			$config = $this->getScriptConfig($this->config);
 		}
 
-		if($type == 'auth') {
+		if(isset($type) && $type == 'auth') {
 			$config = $this->getAuthConfig($this->config);
 		}
 
@@ -122,12 +122,16 @@ class Connection extends BaseConnection {
 	}
 
 
+
+
+
 	/**
 	 * Returns an array of databases that are available with the current
 	 * server settings and the current user name and password
 	 * credentials.
 	 *
 	 * @return array|FileMaker_Error List of database names or an Error object.
+	 * @see FileMaker
 	 */
 	function listDatabases()
 	{
@@ -140,6 +144,7 @@ class Connection extends BaseConnection {
 	 * name and password credentials.
 	 *
 	 * @return array|FileMaker_Error List of script names or an Error object.
+	 * @see FileMaker
 	 */
 	function listScripts()
 	{
@@ -152,6 +157,7 @@ class Connection extends BaseConnection {
 	 * user name and password credentials.
 	 *
 	 * @return array|FileMaker_Error List of layout names or an Error object.
+	 * @see FileMaker
 	 */
 	function listLayouts()
 	{
@@ -180,6 +186,7 @@ class Connection extends BaseConnection {
 	 * @param string $url URL of the container field contents to get.
 	 *
 	 * @return string Raw field data|FileMaker_Error if remote container field.
+	 * @see FileMaker
 	 */
 	public function getContainerData($url)
 	{
@@ -200,9 +207,11 @@ class Connection extends BaseConnection {
 	 * @param string $url URL of the container field contents to get.
 	 *
 	 * @return string Fully qualified URL to container field contents
+	 * @see FileMaker
 	 */
 	function getContainerDataURL($url)
 	{
 		return $this->getConnection('read')->getContainerDataURL($url);
 	}
+
 }

@@ -6,6 +6,11 @@ use FileMaker;
 
 class QueryBuilder extends Builder {
 
+	/**
+	 * @var Model
+	 */
+	protected $model;
+
 	protected $find;
 
 	public $skip;
@@ -16,14 +21,20 @@ class QueryBuilder extends Builder {
 
 	public $compoundWhere = 1;
 
+	public function setModel($model){
+		$this->model = $model;
+
+		return $this;
+	}
+
 	//this should be the method to get the results
 	public function get($columns = [])
 	{
 		if($this->containsOr()) {
-			$this->find = $this->connection->getConnection('read')->newCompoundFindCommand($this->from);
+			$this->find = $this->connection->getConnection('read')->newCompoundFindCommand($this->model->getLayoutName());
 			$find_type = 'compound';
 		} else {
-			$this->find = $this->connection->getConnection('read')->newFindCommand($this->from);
+			$this->find = $this->connection->getConnection('read')->newFindCommand($this->model->getLayoutName());
 			$find_type = 'basic';
 		}
 
@@ -33,7 +44,11 @@ class QueryBuilder extends Builder {
 
 		$result = $this->find->execute();
 
-		if (FileMaker::isError($result)){
+		/* check if error occurred.
+		 * This wonderful FileMaker API considers no found entries as an error with code 401 which is why we have
+		 * to make this ridiculous exception. Shame on them, really.
+		 */
+		if (FileMaker::isError($result) && !in_array($result->getCode(),['401'])){
 			throw FileMakerException::newFromError($result);
 		}
 
@@ -44,6 +59,10 @@ class QueryBuilder extends Builder {
 			foreach($result->getRecords() as $record) {
 
 				$row = new stdClass();
+
+				$fm = new stdClass();
+				$fm->recordId = $record->getRecordId();
+				$row->{$this->model->getFileMakerMetaKey()} = $fm;
 
 				foreach($result->getFields() as $field) {
 					if($field) {
@@ -80,7 +99,7 @@ class QueryBuilder extends Builder {
 
 		foreach($wheres as $where) {
 			if($find_type == 'compound') {
-				$request = $this->connection->getConnection('read')->newFindRequest($this->from);
+				$request = $this->connection->getConnection('read')->newFindRequest($this->model->getLayoutName());
 				$this->parseWheres([$where], $request, 'basic');
 				$find->add($this->compoundWhere, $request);
 				$this->compoundWhere++;
@@ -88,10 +107,10 @@ class QueryBuilder extends Builder {
 				if($where['type'] == 'Nested') {
 					$this->parseWheres($where['query']->wheres, $find, $find_type);
 				} else {
-			    	$find->AddFindCriterion(
-			    		$where['column'],
-			    		$where['operator'] . $where['value']
-			    	);
+					$find->AddFindCriterion(
+						$where['column'],
+						$where['operator'] . $where['value']
+					);
 				}
 			}
 		}
@@ -137,5 +156,71 @@ class QueryBuilder extends Builder {
 
 		return in_array('or', array_pluck($this->wheres, 'boolean'));
 	}
+
+
+	public function delete($id = null)
+	{
+		if (! is_null($id)) {
+			throw new FileMakerException("delete mode not supported!");
+		}
+
+		$command = $this->connection->getConnection('write')->newDeleteCommand($this->model->getLayoutName(), $this->model->getRecordId());
+		$result = $command->execute();
+
+		if (\FileMaker::isError($result)){
+			throw FileMakerException::newFromError($result);
+		}
+
+		return true;
+	}
+
+	public function update(array $values)
+	{
+		$command = $this->connection->getConnection('write')->newEditCommand($this->model->getLayoutName(), $this->model->getRecordId(), $values);
+		$result = $command->execute();
+
+		if (\FileMaker::isError($result)){
+			dd($command);
+			throw FileMakerException::newFromError($result);
+		}
+
+		return true;
+	}
+
+
+	public function insert(array $values)
+	{
+		$command = $this->connection->getConnection('write')->newAddCommand($this->model->getLayoutName(), $values);
+		$result = $command->execute();
+
+		if (\FileMaker::isError($result)){
+			throw FileMakerException::newFromError($result);
+		}
+
+		return true;
+	}
+
+
+	/**
+	 * Insert a new record and get the value of the primary key.
+	 *
+	 * @param  array   $values
+	 * @param  string  $sequence
+	 * @return int
+	 */
+	public function insertGetId(array $values, $sequence = null)
+	{
+		$command = $this->connection->getConnection('write')->newAddCommand($this->model->getLayoutName(), $values);
+		$result = $command->execute();
+
+		if (\FileMaker::isError($result)){
+			throw FileMakerException::newFromError($result);
+		}
+
+		$record = reset($result->getRecords());
+
+		return $record->getRecordId();;
+	}
+
 
 }
