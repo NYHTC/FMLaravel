@@ -101,11 +101,11 @@ To access container field data you can either make a call to the FileMaker API o
 #### Example using API call:
 
     // retrieve your model as you normally would
-    $model = MyModel::find(124);
+    $task = Task::find(124);
     
     // make API call on container field
     // NOTE this assumed you've set up filemaker as your default database driver
-    $containerData = DB::getContainerData($model->myContainerField);
+    $containerData = DB::getContainerData($task->myContainerField);
     
     // example route response
     return response($containerData)->header('Content-Type:','image/png');
@@ -122,11 +122,11 @@ Extend your model as follows:
 In your controller:
 
     // retrieve your model as you normally would
-    $model = MyModel::find(124);
+    $task = Task::find(124);
     
     // original field is automatically mutated to an instance of class \FMLaravel\Database\ContainerField
-    $myContainerField = $model->myContainerField;
-    // NULL is returned, if there is no field
+    $myContainerField = $task->myContainerField;
+    // NULL is returned, if there is no data set for the field
     
     // now you can access the following attributes
     $myContainerField->key == 'myContainerField'; // original attribute name
@@ -134,6 +134,9 @@ In your controller:
     $myContainerField->file == 'myImageFile.png';
     $myContainerField->mimeType == 'image/png';
     $myContainerField->data == you-binary-image-data // NOTE if you have specified to NOT autoload container data a request to the server will be triggered before it is returned. 
+    
+    // example route response
+    return response($myContainerField->data)->header('Content-Type:',$myContainerField->mimeType);
     
 NOTE
 currently automatically transformed container fields are mutated on the fly and not cached which means that every call to the model's container attribute would potentially trigger a request to the server, so please think about about your data usage.
@@ -201,16 +204,19 @@ By default the layout you set on the $layoutName property of your model will be 
 
 The basic model creation, update and delete methods are also supported. So you can run any of the following commands as usual:
  
-    $model = new Model();
-    $model->myField = "Sheherazade";
-    $model->save();
+    $task = new Task();
+    $task->myField = "Sheherazade";
+    $task->save(); // creates a new record in FileMaker DB
     
-    $model->myField = "I changed my mind";
-    $model->save();
+    $task->myField = "I changed my mind";
+    $task->save(); // updates existing (in this case previously created) record in FileMaker DB
     
-    $model->delete();
+    $task->delete(); // deletes record from FileMaker DB
 
 # To Dos
 
 - write documentation for authentication
+- when inserting/updating models, feed any autofields back to the model we are currently processing
 - find container write solution approach (likely using BaseElements Plugin)
+- adapt to refactored database model
+- consider removing some fields (like mimeType) of ContainerField
