@@ -1,5 +1,7 @@
 # Instalation
 
+_NOTE_ This is a work in progress repository. Thank you for understanding.
+
 ## Install the Laravel framework
 
 You will need the Composer PHP package manager to install Laravel and FMLaravel.  You can install Composer from getcomposer.org

@@ -3,10 +3,16 @@
 use Illuminate\Database\Connection as BaseConnection;
 use FileMaker;
 use \Session;
+use FMLaravel\Database\LogFacade;
 
 class Connection extends BaseConnection {
 
 	public $connection;
+
+	/**
+	 * @var LogFacade
+	 */
+	protected $logger = null;
 
 	public function __construct(array $config)
 	{
@@ -33,7 +39,7 @@ class Connection extends BaseConnection {
 			$config = $this->getScriptConfig($this->config);
 		}
 
-		if(isset($type) && $type == 'auth') {
+		if($type == 'auth') {
 			$config = $this->getAuthConfig($this->config);
 		}
 
@@ -42,12 +48,43 @@ class Connection extends BaseConnection {
 
 	private function createConnection($config)
 	{
-		return new FileMaker(
+		$fm = new FileMaker(
 			$config['database'],
 			$config['host'],
 			$config['username'],
 			$config['password']
 		);
+
+		$this->attachLogger($fm);
+
+		return $fm;
+	}
+
+	protected function attachLogger(FileMaker $fm){
+
+		// if log redirector has not yet been set up, do so now (lazy approach, only call when actually creating a connection)
+		// (also because the log level constants are then loaded :)
+		if ($this->logger === null){
+			if (!array_key_exists('logLevel',$this->config)) {
+				$this->config['logLevel'] = false;
+			}
+			switch ($this->config['logLevel']) {
+				case 'error':
+					$this->logger = new LogFacade(FILEMAKER_LOG_ERR);
+					break;
+				case 'info':
+					$this->logger = new LogFacade(FILEMAKER_LOG_INFO);
+					break;
+				case 'debug':
+					$this->logger = new LogFacade(FILEMAKER_LOG_DEBUG);
+					break;
+				default:
+					$this->logger = false;
+			}
+		}
+		if ($this->logger !== false) {
+			$this->logger->attachLogger($fm);
+		}
 	}
 
 	//override the session username and password with session veriables

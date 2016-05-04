@@ -1,5 +1,6 @@
 <?php namespace FMLaravel\Database;
 
+use FMLaravel\Database\ContainerField\ContainerField;
 use Illuminate\Database\Query\Builder;
 use \stdClass;
 use FileMaker;
@@ -58,19 +59,14 @@ class QueryBuilder extends Builder {
 
 			foreach($result->getRecords() as $record) {
 
-				$row = new stdClass();
+				$row = $this->extractAllAttributes($record);
 
-				$fm = new stdClass();
-				$fm->recordId = $record->getRecordId();
-				$row->{$this->model->getFileMakerMetaKey()} = $fm;
+				$row[$this->model->getFileMakerMetaKey()] = (object)[
+					Model::FILEMAKER_RECORD_ID 			=> $record->getRecordId(),
+					Model::FILEMAKER_MODIFICATION_ID	=> $record->getModificationId()
+				];
 
-				foreach($result->getFields() as $field) {
-					if($field) {
-						$row->$field = $record->getField($field);
-					}
-				}
-
-				$rows[] = $row;
+				$rows[] = (object)$row;
 			}
 
 		}
@@ -161,10 +157,13 @@ class QueryBuilder extends Builder {
 	public function delete($id = null)
 	{
 		if (! is_null($id)) {
-			throw new FileMakerException("delete mode not supported!");
+			throw new FileMakerException("this delete mode is not supported!");
 		}
 
-		$command = $this->connection->getConnection('write')->newDeleteCommand($this->model->getLayoutName(), $this->model->getRecordId());
+		$command = $this->connection->getConnection('write')->newDeleteCommand(
+			$this->model->getLayoutName(),
+			$this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID)
+		);
 		$result = $command->execute();
 
 		if (\FileMaker::isError($result)){
@@ -176,13 +175,45 @@ class QueryBuilder extends Builder {
 
 	public function update(array $values)
 	{
-		$command = $this->connection->getConnection('write')->newEditCommand($this->model->getLayoutName(), $this->model->getRecordId(), $values);
-		$result = $command->execute();
+		$model = $this->model;
 
-		if (\FileMaker::isError($result)){
-			dd($command);
-			throw FileMakerException::newFromError($result);
+
+		/**
+		 * separate container fields from other fields
+		 * Container fields that are set to an empty value will delete the current data
+		 */
+		$cfValues = array_filter($values,function($v){
+			return $v instanceof ContainerField;
+		});
+		$values = array_diff_key($values, $cfValues);
+
+		// first update any non-ContainerFields
+		if (!empty($values)){
+			$command = $this->connection->getConnection('write')->newEditCommand(
+				$this->model->getLayoutName(),
+				$this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID),
+				$values
+			);
+			$result = $command->execute();
+
+			if (\FileMaker::isError($result)){
+				throw FileMakerException::newFromError($result);
+			}
+
+			$record = reset($result->getRecords());
+
+			// because setRawAttributes overwrites the whole array, we have to save the meta data before.
+			$meta = (array)$this->model->getFileMakerMetaData();
+
+			$this->model->setRawAttributes($this->extractAllAttributes($record));
+
+			$meta[Model::FILEMAKER_MODIFICATION_ID] = $record->getModificationId();
+			$this->model->setFileMakerMetaDataArray($meta);
 		}
+		if (!empty($cfValues)){
+			$this->model->updateContainerFields($cfValues);
+		}
+
 
 		return true;
 	}
@@ -190,14 +221,7 @@ class QueryBuilder extends Builder {
 
 	public function insert(array $values)
 	{
-		$command = $this->connection->getConnection('write')->newAddCommand($this->model->getLayoutName(), $values);
-		$result = $command->execute();
-
-		if (\FileMaker::isError($result)){
-			throw FileMakerException::newFromError($result);
-		}
-
-		return true;
+		return !empty($this->insertGetId($values));
 	}
 
 
@@ -210,7 +234,11 @@ class QueryBuilder extends Builder {
 	 */
 	public function insertGetId(array $values, $sequence = null)
 	{
-		$command = $this->connection->getConnection('write')->newAddCommand($this->model->getLayoutName(), $values);
+
+		$command = $this->connection->getConnection('write')->newAddCommand(
+			$this->model->getLayoutName(),
+			$values
+		);
 		$result = $command->execute();
 
 		if (\FileMaker::isError($result)){
@@ -219,7 +247,26 @@ class QueryBuilder extends Builder {
 
 		$record = reset($result->getRecords());
 
-		return $record->getRecordId();;
+		$this->model->setRawAttributes($this->extractAllAttributes($record));
+
+		$meta = [
+			Model::FILEMAKER_RECORD_ID			=> $record->getRecordId(),
+			Model::FILEMAKER_MODIFICATION_ID	=> $record->getModificationId()
+		];
+		$this->model->setFileMakerMetaDataArray($meta);
+
+		return $record->getField($this->model->getKeyName());
+	}
+
+	protected function extractAllAttributes($record)
+	{
+		$attributes = [];
+		foreach($record->getFields() as $field){
+			if ($field){
+				$attributes[$field] = $record->getField($field);
+			}
+		}
+		return $attributes;
 	}
 
 
