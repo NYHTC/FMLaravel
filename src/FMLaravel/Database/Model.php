@@ -1,7 +1,7 @@
 <?php namespace FMLaravel\Database;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
-use Illuminate\Database\Eloquent\Builder;
+use Cache;
 use FMLaravel\Database\ContainerField\ContainerField;
 use \Exception;
 
@@ -15,10 +15,10 @@ abstract class Model extends Eloquent {
 
 	protected $fileMakerMetaKey = "__FileMaker__";
 
-	protected $autoloadContainerFields = false;
 	protected $containerFields = [];
-	protected $containerFieldCacheStore = 'file';
-	protected $containerFieldCacheTime = 1;
+	protected $containerFieldsAutoload = false;
+//	protected $containerFieldsCacheStore = 'file'; // override property
+//	protected $containerFieldsCacheTime = 1;		  // override property
 
 
 	/**
@@ -45,19 +45,6 @@ abstract class Model extends Eloquent {
 
 		$grammar = $conn->getQueryGrammar();
 
-		if (method_exists($this,'initContainerUploader')){
-			$this->initContainerUploader();
-		}
-		// if model uses a ContainerFieldUploader, initialize it
-//		$containerUploaderTraits = array_filter(class_uses(get_class($this)), function($v){
-//			return false !== strpos('FMLaravel\Database\ContainerField\ContainerUploader',$v);
-//		});
-//		if (count($containerUploaderTraits)){
-//			$this->
-//		}
-
-
-
 		$query = new QueryBuilder($conn, $grammar, $conn->getPostProcessor());
 
 		return $query->setModel($this);
@@ -66,7 +53,7 @@ abstract class Model extends Eloquent {
 	/**
 	 * Get the table qualified key name.
 	 * return plain key name without the table
-	 *
+	 * 
 	 * @return string
 	 */
 	public function getQualifiedKeyName()
@@ -125,20 +112,6 @@ abstract class Model extends Eloquent {
 	}
 
 
-//	/**
-//	 * Get the attributes that have been changed since last sync.
-//	 *
-//	 * @return array
-//	 */
-//	public function getDirty()
-//	{
-//		$dirty = parent::getDirty();
-//
-//
-//		return $dirty;
-//	}
-
-
 
 	/**
 	 * Get a plain attribute (not a relationship).
@@ -151,7 +124,7 @@ abstract class Model extends Eloquent {
 		$value = parent::getAttributeValue($key);
 
 		if ($this->isContainerField($key) && !($value instanceof ContainerField)){
-			$value = $this->asContainerField($key, $value, $this->autoloadContainerFields);
+			$value = $this->asContainerField($key, $value, $this->containerFieldsAutoload);
 		}
 
 		return $value;
@@ -173,6 +146,9 @@ abstract class Model extends Eloquent {
 				$this->attributes[$key] = null;
 			}
 			else if ($value instanceof ContainerField){
+
+				// associate container field with this model
+				$value->setModel($this);
 
 				// make sure the container field knows to which field it belongs
 				$value->setKey($key);
@@ -210,11 +186,26 @@ abstract class Model extends Eloquent {
 	}
 
 	public function getContainerFieldCacheStore(){
-		return $this->containerFieldCacheStore;
+		// first try field overrider
+		if (property_exists($this, 'containerFieldsCacheStore')) {
+			return Cache::store($this->containerFieldsCacheStore);
+		}
+
+		// second try connection configuration
+		$store = $this->getConnection()->getConfig('cacheStore');
+		if (empty($store)){
+			return Cache::store($store);
+		}
+
+		// last just return default store
+		return Cache::store();
 	}
 
 	public function getContainerFieldCacheTime(){
-		return $this->containerFieldCacheTime;
+		if (property_exists($this,'containerFieldsCacheTime')){
+			return $this->containerFieldsCacheTime;
+		}
+		return $this->getConnection()->getConfig('cacheTime');
 	}
 
 	public function updateContainerFields(array $values){

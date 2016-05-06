@@ -1,11 +1,14 @@
-<?php namespace FMLaravel\Database;
+<?php
+
+namespace FMLaravel\Database;
 
 use FileMaker_Error;
 
 class FileMakerException extends \Exception {
 
-    public static function newFromError(FileMaker_Error $error)
+    public static function newFromError(FileMaker_Error $error, $additionalMessage = null)
     {
-        return new FileMakerException($error->getMessage(),$error->getCode());
+        $additionalMessage = empty($additionalMessage) ? '' : ' / ' . $additionalMessage;
+        return new FileMakerException($error->getMessage() . $additionalMessage, $error->getCode());
     }
 }

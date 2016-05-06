@@ -2,6 +2,9 @@
 
 use FMHash\FMHash;
 use FMLaravel\Connection;
+//use Illuminate\Database\Connection;
+use FMLaravel\Database\FileMakerException;
+use FMLaravel\Database\RecordExtractor;
 use Illuminate\Support\Facades\DB;
 use \Exception;
 
@@ -12,39 +15,130 @@ class Script {
 	 */
 	protected $connection;
 
-	protected function __construct(Connection $connection = null)
+
+	/**
+	 * @var callable
+	 */
+	protected $paramPreprocessor;
+
+	/**
+	 * @var RecordExtractor
+	 */
+	protected $recordExtractor;
+
+	public function __construct(RecordExtractor $extractor = null, callable $paramPreprocessor = null)
 	{
-		if ($connection == null){
-			$this->connection = DB::connection('filemaker');
+		$this->recordExtractor = $extractor;
+		$this->setParamPreprocessor($paramPreprocessor);
+	}
+
+	/**
+	 * @return Script
+	 */
+	public static function create(RecordExtractor $extractor = null, callable $paramPreprocessor = null){
+		return new Script($extractor, $paramPreprocessor);
+	}
+
+	/**
+	 * @param Connection $connection
+	 * @return $this
+	 */
+	public function setConnection(Connection $connection){
+		$this->connection = $connection;
+		return $this;
+	}
+
+	/**
+	 * @return Connection
+	 */
+	public function getConnection(){
+		return $this->connection;
+	}
+
+	/**
+	 * @param callable $paramPreprocessor
+	 * @return $this
+	 */
+	public function setParamPreprocessor(callable $paramPreprocessor = null){
+		if ($paramPreprocessor == null){
+			$this->paramPreprocessor = $this->getDefaultParamPreprocessor();
 		} else {
-			$this->connection = $connection;
+			$this->paramPreprocessor = $paramPreprocessor;
 		}
+		return $this;
 	}
 
-	public static function connection($name)
-	{
-		return new Script(DB::connection($name));
+	/**
+	 * @return \Closure
+	 */
+	protected function getDefaultParamPreprocessor(){
+		return function($params){
+			if (is_array($params)){
+				return implode("\n",$params);
+			}
+			return $params;
+		};
 	}
 
+	/**
+	 * @return callable
+	 */
+	public function getParamPreprocessor(){
+		return $this->paramPreprocessor;
+	}
+
+	/**
+	 * @param RecordExtractor $extractor
+	 * @return $this
+	 */
+	public function setRecordExtractor(RecordExtractor $extractor){
+		$this->recordExtractor = $extractor;
+		return $this;
+	}
+
+	/**
+	 * @return RecordExtractor
+	 */
+	public function getRecordExtractor(){
+		return $this->recordExtractor;
+	}
+
+	/**
+	 * @param $layout
+	 * @param $script
+	 * @param null $params
+	 * @return array|\FileMaker_Result
+	 * @throws FileMakerException
+	 */
 	public function execute($layout, $script, $params = null)
 	{
-		$fm = $this->connection->getConnection('script');
+		if ($this->connection instanceof Connection){
+			$connection = $this->connection;
+		} else {
+			$connection = DB::connection();
+		}
+
+		$fm = $connection->filemaker('script');
 
 		//if $params is an array, assume it needs to be hashed
-		if(is_array($params)) {
-			$params = FMHash::make($params);
+		if (is_callable($this->paramPreprocessor)){
+			$params = call_user_func($this->paramPreprocessor,$params);
+		}
+//		dd($params);
+
+		$command = $fm->newPerformScriptCommand($layout, $script, $params);
+
+		$result = $command->execute();
+
+		if ($fm->isError($result) && !in_array($result->getCode(),['401'])){
+			throw FileMakerException::newFromError($result, "layout = {$layout}, script = {$script}");
 		}
 
-		$script = $fm->newPerformScriptCommand($layout, $script, $params);
-
-		$result = $script->execute();
-	}
-
-	public static function __callStatic($name, $arguments)
-	{
-		if ($name == 'execute'){
-			return call_user_func_array([new Script(), 'execute'], $arguments);
+		//if not set, return the raw FileMaker result
+		if (!$this->recordExtractor instanceof RecordExtractor){
+			return $result;
 		}
-		throw new Exception("Invalid static call {$name} to Script class");
+
+		return $this->recordExtractor->processResult($result);
 	}
 }

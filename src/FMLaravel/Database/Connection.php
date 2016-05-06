@@ -2,17 +2,16 @@
 
 use Illuminate\Database\Connection as BaseConnection;
 use FileMaker;
+use Illuminate\Support\Str;
 use \Session;
 use FMLaravel\Database\LogFacade;
 
 class Connection extends BaseConnection {
 
-	public $connection;
-
-	/**
-	 * @var LogFacade
+	/** List of instantiated connections
+	 * @var array
 	 */
-	protected $logger = null;
+	protected $connections = [];
 
 	public function __construct(array $config)
 	{
@@ -23,30 +22,41 @@ class Connection extends BaseConnection {
 		$this->config = $config;
 	}
 
-	public function getConnection($type)
+	public function filemaker($type = 'default', $configMutator = null)
 	{
 		$config = $this->config;
 
-		if(isset($this->config[$type]) && $type == 'read') {
-			$config = $this->getReadConfig($this->config);
+		// if neither a particular configuration nor a configuration mutator exists, just take default connection
+		if ((!array_key_exists($type, $config) || !is_array($config[$type])) && !is_callable($configMutator)){
+			$type = 'default';
 		}
 
-		if(isset($this->config[$type]) && $type == 'write') {
-			$config = $this->getWriteConfig($this->config);
+		// has it already been created?
+		if (isset($this->connections[$type])) {
+			return $this->connections[$type];
 		}
 
-		if(isset($this->config[$type]) && $type == 'script') {
-			$config = $this->getScriptConfig($this->config);
+
+		// if any particular configuration is wanted and defined load it
+		if (array_key_exists($type, $config) && is_array($config[$type])){
+			$config = array_merge($config, $config[$type]);
 		}
 
-		if($type == 'auth') {
-			$config = $this->getAuthConfig($this->config);
+		// if there is any particular configurator passed, run it first
+		if (is_callable($configMutator)) {
+			$config = $configMutator($config);
 		}
 
-		return $this->createConnection($config);
+		$con = $this->createFileMakerConnection($config);
+
+		if (!array_key_exists('cache', $config) || $config['cache']) {
+			$this->connections[$type] = $con;
+		}
+
+		return $con;
 	}
 
-	private function createConnection($config)
+	protected function createFileMakerConnection($config)
 	{
 		$fm = new FileMaker(
 			$config['database'],
@@ -55,111 +65,25 @@ class Connection extends BaseConnection {
 			$config['password']
 		);
 
-		$this->attachLogger($fm);
+		if (array_key_exists('logger',$config) && $config['logger'] instanceof LogFacade){
+			$config['logger']->attachTo($fm);
+		}
+		else if (array_key_exists('logLevel', $config)){
+			switch ($config['logLevel']) {
+				case 'error':
+					LogFacade::with(FILEMAKER_LOG_ERR)->attachTo($fm);
+					break;
+				case 'info':
+					LogFacade::with(FILEMAKER_LOG_INFO)->attachTo($fm);
+					break;
+				case 'debug':
+					LogFacade::with(FILEMAKER_LOG_DEBUG)->attachTo($fm);
+					break;
+			}
+		}
 
 		return $fm;
 	}
-
-	protected function attachLogger(FileMaker $fm){
-
-		// if log redirector has not yet been set up, do so now (lazy approach, only call when actually creating a connection)
-		// (also because the log level constants are then loaded :)
-		if ($this->logger === null){
-			if (!array_key_exists('logLevel',$this->config)) {
-				$this->config['logLevel'] = false;
-			}
-			switch ($this->config['logLevel']) {
-				case 'error':
-					$this->logger = new LogFacade(FILEMAKER_LOG_ERR);
-					break;
-				case 'info':
-					$this->logger = new LogFacade(FILEMAKER_LOG_INFO);
-					break;
-				case 'debug':
-					$this->logger = new LogFacade(FILEMAKER_LOG_DEBUG);
-					break;
-				default:
-					$this->logger = false;
-			}
-		}
-		if ($this->logger !== false) {
-			$this->logger->attachLogger($fm);
-		}
-	}
-
-	//override the session username and password with session veriables
-	private function getAuthConfig($config)
-	{
-		$config['username'] = Session::get('auth.username');
-		$config['password'] = Session::get('auth.password');
-
-		return $config;
-	}
-
-	private function getReadConfig(array $config)
-	{
-		$readConfig = $this->getReadWriteConfig($config, 'read');
-
-		return $this->mergeReadWriteConfig($config, $readConfig);
-	}
-
-	/**
-	 * Get the read configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @return array
-	 */
-	private function getWriteConfig(array $config)
-	{
-		$writeConfig = $this->getReadWriteConfig($config, 'write');
-
-		return $this->mergeReadWriteConfig($config, $writeConfig);
-	}
-
-	/**
-	 * Get the read configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @return array
-	 */
-	private function getScriptConfig(array $config)
-	{
-		$scriptConfig = $this->getReadWriteConfig($config, 'script');
-
-		return $this->mergeReadWriteConfig($config, $scriptConfig);
-	}
-
-	/**
-	 * Get a read / write level configuration.
-	 *
-	 * @param  array   $config
-	 * @param  string  $type
-	 * @return array
-	 */
-	private function getReadWriteConfig(array $config, $type)
-	{
-		if (isset($config[$type][0]))
-		{
-			return $config[$type][array_rand($config[$type])];
-		}
-
-		return $config[$type];
-	}
-
-	/**
-	 * Merge a configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @param  array  $merge
-	 * @return array
-	 */
-	private function mergeReadWriteConfig(array $config, array $merge)
-	{
-		return array_except(array_merge($config, $merge), array('read', 'write', 'script'));
-	}
-
-
-
 
 
 	/**
@@ -172,7 +96,7 @@ class Connection extends BaseConnection {
 	 */
 	function listDatabases()
 	{
-		return $this->getConnection('read')->listDatabases();
+		return $this->filemaker('read')->listDatabases();
 	}
 
 	/**
@@ -185,7 +109,7 @@ class Connection extends BaseConnection {
 	 */
 	function listScripts()
 	{
-		return $this->getConnection('read')->listScripts();
+		return $this->filemaker('read')->listScripts();
 	}
 
 	/**
@@ -198,7 +122,7 @@ class Connection extends BaseConnection {
 	 */
 	function listLayouts()
 	{
-		return $this->getConnection('read')->listLayouts();
+		return $this->filemaker('read')->listLayouts();
 	}
 
 
@@ -225,10 +149,10 @@ class Connection extends BaseConnection {
 	 * @return string Raw field data|FileMaker_Error if remote container field.
 	 * @see FileMaker
 	 */
-	public function getContainerData($url)
-	{
-		return $this->getConnection('read')->getContainerData($url);
-	}
+//	public function getContainerData($url)
+//	{
+//		return $this->filemaker('read')->getContainerData($url);
+//	}
 
 
 	/**
@@ -246,9 +170,9 @@ class Connection extends BaseConnection {
 	 * @return string Fully qualified URL to container field contents
 	 * @see FileMaker
 	 */
-	function getContainerDataURL($url)
-	{
-		return $this->getConnection('read')->getContainerDataURL($url);
-	}
+//	function getContainerDataURL($url)
+//	{
+//		return $this->filemaker('read')->getContainerDataURL($url);
+//	}
 
 }

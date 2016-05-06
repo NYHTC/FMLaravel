@@ -4,13 +4,6 @@ use Session;
 
 class Auth {
 
-	protected $app;
-
-	public function __construct($app)
-	{
-		$this->app = $app;
-	}
-
 	public static function check()
 	{
 		return Session::get('auth.active');
@@ -20,13 +13,20 @@ class Auth {
 	{
 		Session::put('auth.username', $username);
 		Session::put('auth.password', $password);
-		
-		$connection = $this->app->db->connection()->getConnection('auth');
 
-		$layouts = $connection->listLayouts();
-		if($connection->isError($layouts)) {
+		$filemaker = DB::connection('filemaker')->filemaker('auth', function(){
+
+			$config['username'] = Session::get('auth.username');
+			$config['password'] = Session::get('auth.password');
+			$config['cache'] = false;
+
+			return $config;
+		});
+
+		$layouts = $filemaker->listLayouts();
+		if($filemaker->isError($layouts)) {
 			return false;
-		}	
+		}
 
 		return true;
 	}

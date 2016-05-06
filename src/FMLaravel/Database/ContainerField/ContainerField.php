@@ -109,13 +109,13 @@ class ContainerField
                         // if cache is enabled, check it first, and possibly retrieve server
                         if ($this->isCachable()){
                             $key = $this->getCacheKey();
-                            $store = $this->cacheStore();
+                            $store = $this->model->getContainerFieldCacheStore();
 
                             if ($store->has($key)) {
                                 $this->container['data'] = $store->get($key);
                             } else {
                                 $this->loadServerData();
-                                $store->put($key, $this->container['data'], $this->model->getContainerFieldCacheTime());
+                                $this->saveToCache();
                             }
                         } else { // no cache used.
                             $this->loadServerData();
@@ -154,7 +154,16 @@ class ContainerField
         if (empty($this->container['url'])){
             return NULL;
         }
-        return $this->model->getConnection('read')->getContainerData($this->container['url']);
+        return $this->model->getConnection()->filemaker('read')->getContainerData($this->container['url']);
+    }
+
+    public function didSaveToServer($url){
+
+        $this->container['url'] = $url;
+
+        if ($this->isCachable()){
+            $this->saveToCache();
+        }
     }
 
 
@@ -174,18 +183,34 @@ class ContainerField
      * @return bool
      */
     public function isCachable(){
-        return is_string($this->model->getContainerFieldCacheStore()) && !empty($this->getCacheKey());
+        return 0 < $this->model->getContainerFieldCacheTime() && !empty($this->getCacheKey());
     }
 
+    protected function saveToCache(){
+        switch($this->origin){
+            case 'server':
+            case 'data':
+                $data = $this->container['data'];
+                break;
+
+            case 'file':
+                $data = file_get_contents($this->container['realpath']);
+                break;
+
+            default:
+                throw new Exception("origin not supported {$this->origin}");
+        }
+        $this->model->getContainerFieldCacheStore()->put($this->getCacheKey(),$data,$this->model->getContainerFieldCacheTime());
+    }
     /** Gets the cache store to be used
      * @return bool|Cache
      */
-    public function cacheStore(){
-        $store = $this->model->getContainerFieldCacheStore();
-        if (empty($store)){
-            return false;
-        }
-        return Cache::store($store);
-    }
+//    public function getCacheStore(){
+//        $store = $this->model->getContainerFieldCacheStore();
+//        if (empty($store)){
+//            return false;
+//        }
+//        return Cache::store($store);
+//    }
 
 }

@@ -1,6 +1,7 @@
 <?php namespace FMLaravel\Database;
 
 use FMLaravel\Database\ContainerField\ContainerField;
+use FMLaravel\Database\Model;
 use Illuminate\Database\Query\Builder;
 use \stdClass;
 use FileMaker;
@@ -12,6 +13,11 @@ class QueryBuilder extends Builder {
 	 */
 	protected $model;
 
+	/**
+	 * @var RecordExtractor
+	 */
+	protected $recordExtractor;
+
 	protected $find;
 
 	public $skip;
@@ -22,8 +28,10 @@ class QueryBuilder extends Builder {
 
 	public $compoundWhere = 1;
 
-	public function setModel($model){
+	public function setModel(Model $model){
 		$this->model = $model;
+
+		$this->recordExtractor = RecordExtractor::forModel($model);
 
 		return $this;
 	}
@@ -32,10 +40,10 @@ class QueryBuilder extends Builder {
 	public function get($columns = [])
 	{
 		if($this->containsOr()) {
-			$this->find = $this->connection->getConnection('read')->newCompoundFindCommand($this->model->getLayoutName());
+			$this->find = $this->connection->filemaker('read')->newCompoundFindCommand($this->model->getLayoutName());
 			$find_type = 'compound';
 		} else {
-			$this->find = $this->connection->getConnection('read')->newFindCommand($this->model->getLayoutName());
+			$this->find = $this->connection->filemaker('read')->newFindCommand($this->model->getLayoutName());
 			$find_type = 'basic';
 		}
 
@@ -53,26 +61,7 @@ class QueryBuilder extends Builder {
 			throw FileMakerException::newFromError($result);
 		}
 
-		$rows = [];
-
-		if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {
-
-			foreach($result->getRecords() as $record) {
-
-				$row = $this->extractAllAttributes($record);
-
-				$row[$this->model->getFileMakerMetaKey()] = (object)[
-					Model::FILEMAKER_RECORD_ID 			=> $record->getRecordId(),
-					Model::FILEMAKER_MODIFICATION_ID	=> $record->getModificationId()
-				];
-
-				$rows[] = (object)$row;
-			}
-
-		}
-
-		return $rows;
-
+		return $this->recordExtractor->processResult($result);
 	}
 
 	public function skip($skip)
@@ -95,7 +84,7 @@ class QueryBuilder extends Builder {
 
 		foreach($wheres as $where) {
 			if($find_type == 'compound') {
-				$request = $this->connection->getConnection('read')->newFindRequest($this->model->getLayoutName());
+				$request = $this->connection->filemaker('read')->newFindRequest($this->model->getLayoutName());
 				$this->parseWheres([$where], $request, 'basic');
 				$find->add($this->compoundWhere, $request);
 				$this->compoundWhere++;
@@ -103,10 +92,10 @@ class QueryBuilder extends Builder {
 				if($where['type'] == 'Nested') {
 					$this->parseWheres($where['query']->wheres, $find, $find_type);
 				} else {
-					$find->AddFindCriterion(
-						$where['column'],
-						$where['operator'] . $where['value']
-					);
+			    	$find->AddFindCriterion(
+			    		$where['column'],
+			    		$where['operator'] . $where['value']
+			    	);
 				}
 			}
 		}
@@ -160,7 +149,7 @@ class QueryBuilder extends Builder {
 			throw new FileMakerException("this delete mode is not supported!");
 		}
 
-		$command = $this->connection->getConnection('write')->newDeleteCommand(
+		$command = $this->connection->filemaker('write')->newDeleteCommand(
 			$this->model->getLayoutName(),
 			$this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID)
 		);
@@ -189,7 +178,7 @@ class QueryBuilder extends Builder {
 
 		// first update any non-ContainerFields
 		if (!empty($values)){
-			$command = $this->connection->getConnection('write')->newEditCommand(
+			$command = $this->connection->filemaker('write')->newEditCommand(
 				$this->model->getLayoutName(),
 				$this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID),
 				$values
@@ -235,7 +224,7 @@ class QueryBuilder extends Builder {
 	public function insertGetId(array $values, $sequence = null)
 	{
 
-		$command = $this->connection->getConnection('write')->newAddCommand(
+		$command = $this->connection->filemaker('write')->newAddCommand(
 			$this->model->getLayoutName(),
 			$values
 		);
@@ -257,17 +246,17 @@ class QueryBuilder extends Builder {
 
 		return $record->getField($this->model->getKeyName());
 	}
-
-	protected function extractAllAttributes($record)
-	{
-		$attributes = [];
-		foreach($record->getFields() as $field){
-			if ($field){
-				$attributes[$field] = $record->getField($field);
-			}
-		}
-		return $attributes;
-	}
+//
+//	protected function extractAllAttributes($record)
+//	{
+//		$attributes = [];
+//		foreach($record->getFields() as $field){
+//			if ($field){
+//				$attributes[$field] = $record->getField($field);
+//			}
+//		}
+//		return $attributes;
+//	}
 
 
 }
