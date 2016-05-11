@@ -3,7 +3,7 @@
 use FMLaravel\Database\Model;
 use FMLaravel\Support\Script;
 
-trait RunScriptOnUpload
+trait RunScriptOnSave
 {
     protected function getContainerFieldUploaderScriptLayout(){
         return $this->getLayoutName();
@@ -20,12 +20,33 @@ trait RunScriptOnUpload
 
         $params = array_unshift($fields,$primaryKeyValue);
 
-        $result = Script::run(
+        $script = new Script(RecordExtractor::forModel($this), function($params){
+            if (is_array($params)){
+                return implode("\n",$params);
+            }
+            return $params;
+        });
+
+        $script->setConnection($this->getConnection());
+
+        $result = $script->execute(
             $this->getContainerFieldUploaderScriptLayout(),
             $this->getContainerFieldUploaderScriptName(),
             $params
         );
 
-        
+        $record = reset($result);
+
+        // for each of the passed container fields
+        array_walk($values,function(ContainerField $cf,$k)use($record){
+            // well, it depends on what the script actually does :)
+            // this is more of a sample implementation, also see RunBase64UploaderScriptOnSave
+        });
+
+        $meta = (array)$this->getFileMakerMetaData();
+        $meta = array_merge($meta, (array)$record->{$this->getFileMakerMetaKey()} );
+        $this->setFileMakerMetaDataArray($meta);
+
+
     }
 }

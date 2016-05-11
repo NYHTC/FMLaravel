@@ -5,6 +5,7 @@ use FMLaravel\Database\Model;
 use Illuminate\Database\Query\Builder;
 use \stdClass;
 use FileMaker;
+use Exception;
 
 class QueryBuilder extends Builder {
 
@@ -164,9 +165,6 @@ class QueryBuilder extends Builder {
 
 	public function update(array $values)
 	{
-		$model = $this->model;
-
-
 		/**
 		 * separate container fields from other fields
 		 * Container fields that are set to an empty value will delete the current data
@@ -194,11 +192,13 @@ class QueryBuilder extends Builder {
 			// because setRawAttributes overwrites the whole array, we have to save the meta data before.
 			$meta = (array)$this->model->getFileMakerMetaData();
 
-			$this->model->setRawAttributes($this->extractAllAttributes($record));
+			$this->model->setRawAttributes($this->recordExtractor->extractRecordFields($record));
 
 			$meta[Model::FILEMAKER_MODIFICATION_ID] = $record->getModificationId();
 			$this->model->setFileMakerMetaDataArray($meta);
 		}
+
+		// now also save container fields
 		if (!empty($cfValues)){
 			$this->model->updateContainerFields($cfValues);
 		}
@@ -223,7 +223,16 @@ class QueryBuilder extends Builder {
 	 */
 	public function insertGetId(array $values, $sequence = null)
 	{
+		/**
+		 * separate container fields from other fields
+		 * Container fields that are set to an empty value will delete the current data
+		 */
+		$cfValues = array_filter($values,function($v){
+			return $v instanceof ContainerField;
+		});
+		$values = array_diff_key($values, $cfValues);
 
+		// first update any non-ContainerFields (even if no attributes set!)
 		$command = $this->connection->filemaker('write')->newAddCommand(
 			$this->model->getLayoutName(),
 			$values
@@ -236,7 +245,7 @@ class QueryBuilder extends Builder {
 
 		$record = reset($result->getRecords());
 
-		$this->model->setRawAttributes($this->extractAllAttributes($record));
+		$this->model->setRawAttributes($this->recordExtractor->extractRecordFields($record));
 
 		$meta = [
 			Model::FILEMAKER_RECORD_ID			=> $record->getRecordId(),
@@ -244,19 +253,14 @@ class QueryBuilder extends Builder {
 		];
 		$this->model->setFileMakerMetaDataArray($meta);
 
+		// now also save container fields
+		if (!empty($cfValues)){
+			$this->model->updateContainerFields($cfValues);
+		}
+
+
 		return $record->getField($this->model->getKeyName());
 	}
-//
-//	protected function extractAllAttributes($record)
-//	{
-//		$attributes = [];
-//		foreach($record->getFields() as $field){
-//			if ($field){
-//				$attributes[$field] = $record->getField($field);
-//			}
-//		}
-//		return $attributes;
-//	}
 
 
 }

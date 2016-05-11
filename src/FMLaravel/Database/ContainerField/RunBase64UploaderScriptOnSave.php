@@ -24,12 +24,19 @@ trait RunBase64UploaderScriptOnSave
         ];
 
         $paramsList = array_map(function($k,$cf){
-                return $k . "\n" . $cf->file . "\n" . base64_encode($cf->data);
-            }, array_keys($values), $values);
+            return $k . "\n" . $cf->file . "\n" . base64_encode($cf->data);
+        }, array_keys($values), $values);
 
         $params = array_merge($paramsStart,$paramsList);
 
-        $script = new Script(RecordExtractor::forModel($this));
+        $script = new Script(RecordExtractor::forModel($this), function($params){
+            if (is_array($params)){
+                return implode("\n",$params);
+            }
+            return $params;
+        });
+
+        $script->setConnection($this->getConnection());
 
         $result = $script->execute(
             $this->getContainerFieldUploaderScriptLayout(),

@@ -40,11 +40,16 @@ class Script {
 	}
 
 	/**
-	 * @param Connection $connection
+	 * @param String|Connection $connection
 	 * @return $this
 	 */
-	public function setConnection(Connection $connection){
-		$this->connection = $connection;
+	public function setConnection($connection){
+		if (is_string($connection)){
+			$connection = DB::connection($connection);
+		}
+		if ($connection instanceof Connection) {
+			$this->connection = $connection;
+		}
 		return $this;
 	}
 

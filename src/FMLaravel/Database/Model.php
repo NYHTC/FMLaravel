@@ -4,6 +4,7 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 use Cache;
 use FMLaravel\Database\ContainerField\ContainerField;
 use \Exception;
+use Symfony\Component\HttpFoundation\File\File;
 
 abstract class Model extends Eloquent {
 
@@ -19,19 +20,6 @@ abstract class Model extends Eloquent {
 	protected $containerFieldsAutoload = false;
 //	protected $containerFieldsCacheStore = 'file'; // override property
 //	protected $containerFieldsCacheTime = 1;		  // override property
-
-
-	/**
-	 * Create a new Eloquent model instance.
-	 *
-	 * @param  array  $attributes
-	 * @return void
-	 */
-	public function __construct(array $attributes = [])
-	{
-		parent::__construct($attributes);
-
-	}
 
 
 	/**
@@ -113,6 +101,7 @@ abstract class Model extends Eloquent {
 
 
 
+
 	/**
 	 * Get a plain attribute (not a relationship).
 	 *
@@ -130,7 +119,6 @@ abstract class Model extends Eloquent {
 		return $value;
 	}
 
-
 	/**
 	 * Set a given attribute on the model.
 	 *
@@ -145,7 +133,14 @@ abstract class Model extends Eloquent {
 			if (empty($value)){
 				$this->attributes[$key] = null;
 			}
-			else if ($value instanceof ContainerField){
+			elseif (is_string($value)){
+				// treat value as a realpath, as the most likely scenario entails developers wanting file uploads to be stored to the FM server
+				$value = ContainerField::fromRealpath($value);
+			}
+			elseif ($value instanceof File){
+				$value = ContainerField::fromRealpath($value->getRealPath());
+			}
+			if ($value instanceof ContainerField){
 
 				// associate container field with this model
 				$value->setModel($this);

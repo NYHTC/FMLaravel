@@ -2,6 +2,7 @@
 
 use FileMaker;
 use FMLaravel\Database\Model;
+use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Util\MimeType;
 use Illuminate\Support\Facades\Cache;
 
@@ -57,16 +58,30 @@ class ContainerField
         return $cf;
     }
 
-    static public function fromFile($realpath){
+    static public function fromStorage($filename, $disk = null){
 
-        $cf = new ContainerField('file');
+        $cf = new ContainerField('storage');
 
-        $filename = basename($realpath);
+        $cf->container['file'] = $filename;
+        $cf->container['disk'] = $disk;
+        $cf->container['mimeType'] = MimeType::detectByFilename($filename);
+
+        return $cf;
+    }
+
+    static public function fromRealpath($realpath, $filename = null){
+
+        $cf = new ContainerField('realpath');
+
+        if ($filename === null) {
+            $filename = basename($realpath);
+        }
 
         $cf->container['realpath'] = $realpath;
         $cf->container['file'] = $filename;
         $cf->container['mimeType'] = MimeType::detectByFilename($filename);
 
+        return $cf;
     }
 
     static public function withData($filename, $rawData){
@@ -124,8 +139,11 @@ class ContainerField
 
                     return $this->container['data'];
 
-                case 'file':
+                case 'realpath':
                     return file_get_contents($this->container['realpath']);
+
+                case 'storage':
+                    return Storage::disk($this->container['disk'])->get($this->container['file']);
 
                 case 'data':
                     return $this->container['data'];
@@ -193,8 +211,12 @@ class ContainerField
                 $data = $this->container['data'];
                 break;
 
-            case 'file':
+            case 'realpath':
                 $data = file_get_contents($this->container['realpath']);
+                break;
+
+            case 'storage':
+                $data = Storage::disk($this->container['disk'])->get($this->container['file']);
                 break;
 
             default:
@@ -202,6 +224,7 @@ class ContainerField
         }
         $this->model->getContainerFieldCacheStore()->put($this->getCacheKey(),$data,$this->model->getContainerFieldCacheTime());
     }
+
     /** Gets the cache store to be used
      * @return bool|Cache
      */
