@@ -33,14 +33,6 @@ class Script
     }
 
     /**
-     * @return Script
-     */
-    public static function create(RecordExtractor $extractor = null, callable $paramPreprocessor = null)
-    {
-        return new Script($extractor, $paramPreprocessor);
-    }
-
-    /**
      * @param String|Connection $connection
      * @return $this
      */

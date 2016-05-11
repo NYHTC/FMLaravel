@@ -5,6 +5,7 @@ use FMLaravel\Database\Model;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Util\MimeType;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class ContainerField
 {
@@ -116,6 +117,10 @@ class ContainerField
         ];
     }
 
+    public function getOrigin()
+    {
+        return $this->origin;
+    }
 
 
     public function getModel()
@@ -184,6 +189,8 @@ class ContainerField
                 case 'data':
                     return $this->container['data'];
             }
+        } elseif (method_exists($this, 'get' . Str::studly($name))) {
+            return $this->{'get' . Str::studly($name)}();
         } elseif (isset($this->container[$name])) {
             return $this->container[$name];
         }

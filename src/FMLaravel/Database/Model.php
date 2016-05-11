@@ -18,9 +18,9 @@ abstract class Model extends Eloquent
 
 //    protected $containerFields = [];
 //    protected $containerFieldsAutoload = false; // override property
-//    protected $containerFieldsCacheKeyFormat = ':modificationId'; // override property
-//    protected $containerFieldsCacheStore = 'file'; // override property
 //    protected $containerFieldsCacheTime = 1;          // override property
+//    protected $containerFieldsCacheStore = 'file'; // override property
+//    protected $containerFieldsCacheKeyFormat = ':url'; // override property
 
 
     /**
@@ -310,7 +310,8 @@ abstract class Model extends Eloquent
     }
 
     /** Method called by container field update mechanism
-     * @param array $values
+     * called on model saves (inserts & updates)
+     * @param array $values key-value list of dirty (ie changed ContainerFields)
      * @throws Exception
      * @see FMLaravel\Database\QueryBuilder
      */

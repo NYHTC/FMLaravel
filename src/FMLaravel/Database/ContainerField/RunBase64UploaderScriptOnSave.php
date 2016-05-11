@@ -8,12 +8,18 @@ trait RunBase64UploaderScriptOnSave
 {
     protected function getContainerFieldUploaderScriptLayout()
     {
+        if (property_exists($this, 'containerFieldUploaderScriptLayout')) {
+            return $this->containerFieldUploaderScriptLayout;
+        }
         return $this->getLayoutName();
     }
 
     protected function getContainerFieldUploaderScriptName()
     {
-        return $this->containerFieldUploaderScriptName;
+        if (property_exists($this, 'containerFieldUploaderScriptName')) {
+            return $this->containerFieldUploaderScriptName;
+        }
+        return 'PHPAPI_' . class_basename($this) . 'RunBase64UploaderScriptOnSave';
     }
 
     public function updateContainerFields(array $values)
