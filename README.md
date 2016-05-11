@@ -5,11 +5,12 @@ This package adds an Laravel compatible abstraction of the Filemaker API that gi
  - Encapsulate your Filemaker records as Eloquent models with the basic read/write operations
  - Run Filemaker scripts (on the Filemaker Server)
  - Authenticate user credentials against Filemaker Server users
- - Raw Filemaker PHP API access using laravel supplied configuration settings, if needed 
+ - Easy access to raw Filemaker PHP API using laravel supplied configuration settings (if needed)
 
 # Todo
 
 - write documentation for authentication
+- write unit tests
 
 
 # Installation

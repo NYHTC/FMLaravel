@@ -9,6 +9,10 @@
 		{
 			"name": "Andrew Morgan",
 			"email": "andrewmile@gmail.com"
+		},
+		{
+			"name": "Philip Tschiemer",
+			"homepage": "http://filou.se"
 		}
 	],
     "require": {
@@ -37,6 +41,6 @@
 			"@test-psr2"
 		],
 		"test-psr2": "phpcs --standard=PSR2 src",
-		"test-phpunit": "phpunit"
+		"test-phpunit": "phpunit tests"
 	}
 }
