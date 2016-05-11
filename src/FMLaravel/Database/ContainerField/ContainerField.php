@@ -149,47 +149,49 @@ class ContainerField
     {
         return MimeType::detectByFilename($this->container['filename']);
     }
+    
+    public function getData()
+    {
+        switch ($this->origin) {
+            case 'server':
+                // return null if no url/container data exists
+                if (empty($this->container['url'])) {
+                    return null;
+                }
+                if (!$this->hasLoadedServerData()) {
+                    // if cache is enabled, check it first, and possibly retrieve server
+                    if ($this->isCachable()) {
+                        $key = $this->getCacheKey();
+                        $store = $this->model->getContainerFieldCacheStore();
+
+                        if ($store->has($key)) {
+                             $this->container['data'] = $store->get($key);
+                        } else {
+                            $this->loadServerData();
+                            $this->saveToCache();
+                        }
+                    } else { // no cache used.
+                        $this->loadServerData();
+                    }
+                }
+
+                return $this->container['data'];
+
+            case 'realpath':
+                return file_get_contents($this->container['realpath']);
+
+            case 'storage':
+                return Storage::disk($this->container['disk'])->get($this->container['filename']);
+
+            case 'data':
+                return $this->container['data'];
+        }
+    }
 
 
     public function __get($name)
     {
-        // container field data is treated specially
-        if ($name == 'data') {
-            switch ($this->origin) {
-                case 'server':
-                    // return null if no url/container data exists
-                    if (empty($this->container['url'])) {
-                        return null;
-                    }
-                    if (!$this->hasLoadedServerData()) {
-                        // if cache is enabled, check it first, and possibly retrieve server
-                        if ($this->isCachable()) {
-                            $key = $this->getCacheKey();
-                            $store = $this->model->getContainerFieldCacheStore();
-
-                            if ($store->has($key)) {
-                                $this->container['data'] = $store->get($key);
-                            } else {
-                                $this->loadServerData();
-                                $this->saveToCache();
-                            }
-                        } else { // no cache used.
-                            $this->loadServerData();
-                        }
-                    }
-
-                    return $this->container['data'];
-
-                case 'realpath':
-                    return file_get_contents($this->container['realpath']);
-
-                case 'storage':
-                    return Storage::disk($this->container['disk'])->get($this->container['filename']);
-
-                case 'data':
-                    return $this->container['data'];
-            }
-        } elseif (method_exists($this, 'get' . Str::studly($name))) {
+        if (method_exists($this, 'get' . Str::studly($name))) {
             return $this->{'get' . Str::studly($name)}();
         } elseif (isset($this->container[$name])) {
             return $this->container[$name];
