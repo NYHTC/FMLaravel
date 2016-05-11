@@ -92,6 +92,16 @@ On the `$filemaker` object you may now perform any operations as provided by the
 
     $filemaker->getLayout('myLayout');
 
+Also basic listings as also provided by the Filemaker API can be shortcutted as follows:
+
+    DB::listDatabases();
+    DB::listScripts();
+    DB::listLayouts();
+
+    // or by specifying the connection to use
+    DB::connection('filemaker')->listDatabases();
+    ..
+
 ## Executing Filemaker Scripts
 
 It is possible to easily execute filemaker scripts residing on your filemaker server. Use the following example code in your controller:
@@ -161,15 +171,103 @@ In your Model classes you will need to specify the layout that should be used wh
 By default Laravel will assume the primary key of your table is "id".  If you have a different primary key you will need to add the following inside your class:
 
 	protected $primaryKey = 'YourTaskPrimaryKey';
+
+
+
+#### Querying a table
+
+In a file where you will query your FileMaker tasks data add the following at the top of the file:
+
+	use App\Task;
+
+Now that you have imported your Task model you can run the following types of queries against your tasks table:
+
+Find all records
+
+	$tasks = Task::all();
+
+Find a record by its primary key
+
+	$task = Task::find(3); //will find the task record with a primary key of 3
+
+Find a task that matches your find criteria.  You can either pass in two parameters where the first is the field name and the second is the value to match on or you can pass in an array of field names and values.
+
+	//will find tasks where the task_name is 'Go to the store'
+	$tasks = Task::where('task_name', 'Go to the store')->get();
+
+	//will find tasks where task_name is 'Go to the store' and priority is 1
+	$tasks = Task::where([
+		'task_name' => 'Go to the store',
+		'priority'  => 1
+	])->get();
+
+If you want to limit your query to the first record that matches your criteria you can use first() instead of get()
+
+	$tasks = Task::where('task_name', 'Go to the store')->first();
+
+If you want to specify a number of records to limit your query by you can use the limit() method.
+
+	//will find the first 10 records that match the find criteria
+	$tasks = Task::where('task_name', 'Go to the store')->limit(10)->get();
+
+You can also specify a number of records to skip with the skip() method.
+
+	//will find records that match the find criteria after skipping the first 10
+	$tasks = Task::where('task_name', 'Go to the store')->skip(10)->get();
+
+These query methods can be chained so you can do something like the following:
+
+	//will find 10 records that match the find criteria after skipping the first 100
+	$tasks = Task::where('task_name', 'Go to the store')->skip(100)->limit(10)->get();
+
+If you are using both skip() and limit() in the same query and would rather combine them into one method you can also use the following:
+
+	//will find 10 records that match the find criteria after skipping the first 100
+	$tasks = Task::where('task_name', 'Go to the store')->setRange(100, 10)->get();
+
+By default the layout you set on the $layoutName property of your model will be used to query your data.  However, if you need to specify a different layout for a specific query you may use the setLayout() method.
+
+	//will use the PastDue layout to perform the query
+	$tasks = Task::where('task_name', 'Go to the store')->setLayout('PastDue')->get();
+
+
+#### Inserting, updating and deleting models
+
+The basic model creation, update and delete methods are also supported. So you can run any of the following commands as usual:
+
+    $task = new Task();
+    $task->myField = "Sheherazade";
+    $task->save(); // creates a new record in FileMaker DB
+
+    $task->myField = "I changed my mind";
+    $task->save(); // updates existing (in this case previously created) record in FileMaker DB
+
+    $task->delete(); // deletes record from FileMaker DB
+
+
+### Extended Usage
 	
-	
-### FileMaker Meta 
+#### FileMaker Meta
 
 For internal processing filemaker keeps certain data (like an internal record id) which is required for write operations. By default any such meta-data is stored in an additional attribute '\__FileMaker__'. Edit on your own risk. In case you do require this attribute for your own processes you can easily rename the name by setting the key in your model:
 
-	protected $fileMakerMetaKey = "__FileMaker_No_Collisions_Expected_Now_HAHAHAHA__";	
+	protected $fileMakerMetaKey = "__FileMaker_No_Collisions_Expected_Now_HAHAHAHA__";
+
+Available meta data (once a request to the filemaker server has been made) is the record id and the current modification id.
+The data can be accessed on your model instances as follows:
+
+    $meta = $task->getFileMakerMetaData();
+
+    $meta->recordId ..
+    $meta->modificationId ..
+
+    // or
+
+    $task->getFileMakerMetaData('recordId')
+    $task->getFileMakerMetaData('modificationId')
+
 	
-### Timestamps
+#### Timestamps
 	
 By default the regular timestamp fields 'updated_at' etc as generated by Eloquent are disabled for all FMLaravel models. To turn these on enable them by setting the appropriate option in your model:
 
@@ -178,7 +276,7 @@ By default the regular timestamp fields 'updated_at' etc as generated by Eloquen
 Please note that by enabling timestamp, you must provide the according fields in your filemaker table/layout.
 
 	
-### Container fields
+#### Container fields
 
 Container fields do not contain data directly, but references which can come in two forms (also see [this FM help article](http://help.filemaker.com/app/answers/detail/a_id/5812/~/about-publishing-the-contents-of-container-fields-on-the-web)).
 To access container field data you can either make a call to the FileMaker API or have your model handle this for you, whereas the reference typically contains the filename from which the type could be guessed.
@@ -239,7 +337,7 @@ In your controller:
 
 
 
-#### Caching of (filemaker server) container field data
+##### Caching of (filemaker server) container field data
 
 Additionally you can enable caching of container field data that is retrieved from any filemaker server. Extend your model with the following options:
 
@@ -266,7 +364,10 @@ Additionally you can enable caching of container field data that is retrieved fr
 _Note_ that filemaker provided URLs contain the field, filename and record id, but no (record) modification id. Which means, to avoid stale cache any changes to container field data must result in a change of any of these values.
 
 
-#### Uploading container field data to filemaker servers
+
+##### Setting and uploading container field data to filemaker servers
+
+If your model is using the automatic ContainerField functionalities, you can also update your container fields.
 
 By default the Filemaker PHP API does not provide a direct way of putting files into container fields - you can write directly into them, yes, but the data will be considered text.
 
@@ -337,77 +438,34 @@ On the filemaker server side you will naturally need a script to handle the inco
 ![Example PHPAPI_Task_RunBase64UploaderScriptOnSave script](https://github.com/tschiemer/FMLaravel/raw/master/doc/PHPAPI_Task_RunBase64UploaderScriptOnSave.png "Example PHPAPI_Task_RunBase64UploaderScriptOnSave script")
 
 
+Finally in your controller you have several options for setting container data:
+
+    ///// Setting the attribute itself
+    // empty the container field
+    $task->myContainerField = null;
+
+    // set a file as uploaded from any html form
+    $task->myContainerField = Request::file('myFileUploadField');
+    // or possibly
+    $task->myContainerField = $request->file('myFileUploadField');
+
+    // set a file you have instantiated differently and that fullfills the SplFileInfo interface
+    $task->myContainerField = new Symfony\Component\HttpFoundation\File\File('myImageFile.png');
 
 
-## Querying a table
+    ///// Calling method on the ContainerField object
 
-In a file where you will query your FileMaker tasks data add the following at the top of the file:
+    // optional filename (if not given will be deduced from realpath that might be messed up in case of temporary files)
+    $task->myContainerField->setFromRealpath($realpath, $filename);
 
-	use App\Task;
+    // in case you are computing any data, use this
+    $task->myContainerField->setWithData($filename, $data);
 
-Now that you have imported your Task model you can run the following types of queries against your tasks table:
-
-Find all records
-
-	$tasks = Task::all();
-
-Find a record by its primary key
-
-	$task = Task::find(3); //will find the task record with a primary key of 3
-
-Find a task that matches your find criteria.  You can either pass in two parameters where the first is the field name and the second is the value to match on or you can pass in an array of field names and values.
-
-	//will find tasks where the task_name is 'Go to the store'
-	$tasks = Task::where('task_name', 'Go to the store')->get();
-
-	//will find tasks where task_name is 'Go to the store' and priority is 1
-	$tasks = Task::where([
-		'task_name' => 'Go to the store',
-		'priority'  => 1
-	])->get();
-
-If you want to limit your query to the first record that matches your criteria you can use first() instead of get()
-
-	$tasks = Task::where('task_name', 'Go to the store')->first();
-
-If you want to specify a number of records to limit your query by you can use the limit() method.
-
-	//will find the first 10 records that match the find criteria
-	$tasks = Task::where('task_name', 'Go to the store')->limit(10)->get();
-
-You can also specify a number of records to skip with the skip() method.
-
-	//will find records that match the find criteria after skipping the first 10
-	$tasks = Task::where('task_name', 'Go to the store')->skip(10)->get();
-
-These query methods can be chained so you can do something like the following:
-
-	//will find 10 records that match the find criteria after skipping the first 100
-	$tasks = Task::where('task_name', 'Go to the store')->skip(100)->limit(10)->get();
-
-If you are using both skip() and limit() in the same query and would rather combine them into one method you can also use the following:
-
-	//will find 10 records that match the find criteria after skipping the first 100
-	$tasks = Task::where('task_name', 'Go to the store')->setRange(100, 10)->get();
-
-By default the layout you set on the $layoutName property of your model will be used to query your data.  However, if you need to specify a different layout for a specific query you may use the setLayout() method.
-
-	//will use the PastDue layout to perform the query
-	$tasks = Task::where('task_name', 'Go to the store')->setLayout('PastDue')->get();
+    // you have a file on laravel filesystem disk that you want to use?
+    // Passing the disk is optional, by default the default storage will be used.
+    $task->myContainerField->setFromStorage($filename, $disk);
 
 
-## Inserting, updating and deleting models
-
-The basic model creation, update and delete methods are also supported. So you can run any of the following commands as usual:
- 
-    $task = new Task();
-    $task->myField = "Sheherazade";
-    $task->save(); // creates a new record in FileMaker DB
-    
-    $task->myField = "I changed my mind";
-    $task->save(); // updates existing (in this case previously created) record in FileMaker DB
-    
-    $task->delete(); // deletes record from FileMaker DB
 
 
 ## User authentication through Filemaker
