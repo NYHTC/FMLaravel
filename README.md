@@ -334,7 +334,7 @@ So for our example Task model this might look as follows:
 
 On the filemaker server side you will naturally need a script to handle the incoming data. A basic sample implementation is shown in the image below.
 
-![Example PHPAPI_Task_RunBase64UploaderScriptOnSave script](FMLaravel/raw/master/doc/PHPAPI_TASK_RunBase64UploaderScriptOnSave.png "Example PHPAPI_Task_RunBase64UploaderScriptOnSave script")
+![Example PHPAPI_Task_RunBase64UploaderScriptOnSave script](FMLaravel/master/doc/PHPAPI_Task_RunBase64UploaderScriptOnSave.png "Example PHPAPI_Task_RunBase64UploaderScriptOnSave script")
 
 
 
