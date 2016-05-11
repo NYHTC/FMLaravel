@@ -4,7 +4,7 @@ use Illuminate\Database\Eloquent\Model as Eloquent;
 use Cache;
 use FMLaravel\Database\ContainerField\ContainerField;
 use \Exception;
-use Symfony\Component\HttpFoundation\File\File;
+use Illuminate\Http\UploadedFile;
 
 abstract class Model extends Eloquent
 {
@@ -13,14 +13,6 @@ abstract class Model extends Eloquent
 
     // disable default timestamps, because likely the filemaker table will not have these
     public $timestamps = false;
-
-//    protected $fileMakerMetaKey = "__FileMaker__"; // override property
-
-//    protected $containerFields = [];
-//    protected $containerFieldsAutoload = false; // override property
-//    protected $containerFieldsCacheTime = 1;          // override property
-//    protected $containerFieldsCacheStore = 'file'; // override property
-//    protected $containerFieldsCacheKeyFormat = ':url'; // override property
 
 
     /**
@@ -243,12 +235,10 @@ abstract class Model extends Eloquent
             // require a container field to be either of the following:
             if (empty($value)) {
                 $this->attributes[$key] = null;
-            } elseif (is_string($value)) {
-                // treat value as a realpath, as the most likely scenario entails developers wanting file uploads to
-                // be stored to the FM server
-                $value = ContainerField::fromRealpath($value);
-            } elseif ($value instanceof File) {
-                $value = ContainerField::fromRealpath($value->getRealPath());
+            } elseif ($value instanceof UploadedFile) {
+                $value = ContainerField::fromRealpath($value->getRealPath(), $value->getClientOriginalName());
+            } elseif ($value instanceof \SplFileInfo) {
+                $value = ContainerField::fromRealpath($value->getRealPath(), $value->getFilename());
             }
             if ($value instanceof ContainerField) {
                 // associate container field with this model
@@ -311,7 +301,7 @@ abstract class Model extends Eloquent
 
     /** Method called by container field update mechanism
      * called on model saves (inserts & updates)
-     * @param array $values key-value list of dirty (ie changed ContainerFields)
+     * @param array $values
      * @throws Exception
      * @see FMLaravel\Database\QueryBuilder
      */

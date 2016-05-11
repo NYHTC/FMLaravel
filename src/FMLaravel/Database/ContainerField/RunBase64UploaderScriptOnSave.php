@@ -19,7 +19,7 @@ trait RunBase64UploaderScriptOnSave
         if (property_exists($this, 'containerFieldUploaderScriptName')) {
             return $this->containerFieldUploaderScriptName;
         }
-        return 'PHPAPI_' . class_basename($this) . 'RunBase64UploaderScriptOnSave';
+        return 'PHPAPI_' . class_basename($this) . '_RunBase64UploaderScriptOnSave';
     }
 
     public function updateContainerFields(array $values)
@@ -33,7 +33,7 @@ trait RunBase64UploaderScriptOnSave
         ];
 
         $paramsList = array_map(function ($k, $cf) {
-            return $k . "\n" . $cf->file . "\n" . base64_encode($cf->data);
+            return $k . "\n" . $cf->filename . "\n" . base64_encode($cf->data);
         }, array_keys($values), $values);
 
         $params = array_merge($paramsStart, $paramsList);
