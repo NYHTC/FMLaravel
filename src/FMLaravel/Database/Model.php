@@ -117,8 +117,13 @@ abstract class Model extends Eloquent
     {
         $value = parent::getAttributeValue($key);
 
+        // mutate container fields on request
         if ($this->isContainerField($key) && !($value instanceof ContainerField)) {
             $value = $this->asContainerField($key, $value, $this->containerFieldsAutoload);
+
+            // overwrite the original value with the created container field
+            $this->attributes[$key] = $value;
+            $this->original[$key] = $value;
         }
 
         return $value;
@@ -170,7 +175,7 @@ abstract class Model extends Eloquent
 
     public function isContainerField($key)
     {
-        return in_array($key, $this->containerFields);
+        return property_exists($this, 'containerFields') && in_array($key, $this->containerFields);
     }
 
     public function getContainerField($key, $loadFromServer = false)

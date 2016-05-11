@@ -30,11 +30,9 @@ class ContainerField
 
 
 
-    protected function __construct($origin, $key = null, Model $model = null)
+    protected function __construct($origin)
     {
         $this->origin = $origin;
-        $this->key = $key;
-        $this->model = $model;
     }
 
     /**
@@ -43,61 +41,79 @@ class ContainerField
      * @param Connection|null $connection
      * @return ContainerField
      */
-    public static function fromServer($key, $url, Model $model = null)
+    public static function fromServer($key, $url, Model $model)
     {
-        if (empty($url)) {
-            return null;
-        }
+        $cf = new ContainerField('server');
 
-        $cf = new ContainerField('server', $key, $model);
+        $cf->key = $key;
+        $cf->model = $model;
 
         $filename = basename(substr($url, 0, strpos($url, '?')));
 
-        $cf->container['url'] = $url;
-        $cf->container['file'] = $filename;
-        $cf->container['mimeType'] = MimeType::detectByFilename($filename);
+        $cf->container = [
+            'file'    => $filename,
+            'url'     => $url
+        ];
 
         return $cf;
     }
 
     public static function fromStorage($filename, $disk = null)
     {
-
         $cf = new ContainerField('storage');
 
-        $cf->container['file'] = $filename;
-        $cf->container['disk'] = $disk;
-        $cf->container['mimeType'] = MimeType::detectByFilename($filename);
+        $cf->setFromStorage($filename, $disk);
 
         return $cf;
+    }
+
+    public function setFromStorage($filename, $disk = null)
+    {
+        $this->origin = 'storage';
+        $this->container = [
+            'file'      => $filename,
+            'disk'      => $disk
+        ];
     }
 
     public static function fromRealpath($realpath, $filename = null)
     {
-
         $cf = new ContainerField('realpath');
 
-        if ($filename === null) {
-            $filename = basename($realpath);
-        }
-
-        $cf->container['realpath'] = $realpath;
-        $cf->container['file'] = $filename;
-        $cf->container['mimeType'] = MimeType::detectByFilename($filename);
+        $cf->setFromRealpath($realpath, $filename);
 
         return $cf;
     }
 
+    public function setFromRealpath($realpath, $filename = null)
+    {
+        if ($filename === null) {
+            $filename = basename($realpath);
+        }
+
+        $this->origin = 'realpath';
+        $this->container = [
+            'file'      => $filename,
+            'realpath'  => $realpath
+        ];
+    }
+
     public static function withData($filename, $rawData)
     {
-
         $cf = new ContainerField('data');
 
-        $cf->container['file'] = $filename;
-        $cf->container['mimeType'] = MimeType::detectByFilename($filename);
-        $cf->container['data'] = $rawData;
+        $cf->setWithData($filename, $rawData);
 
         return $cf;
+    }
+
+    public function setWithData($filename, $rawData)
+    {
+        $this->origin = 'data';
+        $this->container = [
+            'file'      => $filename,
+            'data'      => $rawData
+        ];
     }
 
 
@@ -121,6 +137,11 @@ class ContainerField
         return $this;
     }
 
+    public function getMimeType()
+    {
+        return MimeType::detectByFilename($this->container['file']);
+    }
+
 
     public function __get($name)
     {
@@ -128,6 +149,10 @@ class ContainerField
         if ($name == 'data') {
             switch ($this->origin) {
                 case 'server':
+                    // return null if no url/container data exists
+                    if (empty($this->container['url'])) {
+                        return null;
+                    }
                     if (!$this->hasLoadedServerData()) {
                         // if cache is enabled, check it first, and possibly retrieve server
                         if ($this->isCachable()) {
@@ -161,6 +186,21 @@ class ContainerField
         }
     }
 
+    /** Is content set?
+     * NOTE: only meaningful for fields fetched from the server
+     * @return bool
+     */
+    public function isEmpty()
+    {
+        switch ($this->origin) {
+            case 'server':
+                return empty($this->container['url']);
+
+            // in case
+            default:
+                return false;
+        }
+    }
 
     public function hasLoadedServerData()
     {
