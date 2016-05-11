@@ -51,7 +51,7 @@ class ContainerField
         $filename = basename(substr($url, 0, strpos($url, '?')));
 
         $cf->container = [
-            'file'    => $filename,
+            'filename'    => $filename,
             'url'     => $url
         ];
 
@@ -71,7 +71,7 @@ class ContainerField
     {
         $this->origin = 'storage';
         $this->container = [
-            'file'      => $filename,
+            'filename'  => $filename,
             'disk'      => $disk
         ];
     }
@@ -93,7 +93,7 @@ class ContainerField
 
         $this->origin = 'realpath';
         $this->container = [
-            'file'      => $filename,
+            'filename'  => $filename,
             'realpath'  => $realpath
         ];
     }
@@ -111,7 +111,7 @@ class ContainerField
     {
         $this->origin = 'data';
         $this->container = [
-            'file'      => $filename,
+            'filename'  => $filename,
             'data'      => $rawData
         ];
     }
@@ -122,15 +122,18 @@ class ContainerField
     {
         return $this->model;
     }
+
     public function setModel(Model $model)
     {
         $this->model = $model;
         return $this;
     }
+
     public function getKey()
     {
         return $this->key;
     }
+
     public function setKey($key)
     {
         $this->key = $key;
@@ -139,7 +142,7 @@ class ContainerField
 
     public function getMimeType()
     {
-        return MimeType::detectByFilename($this->container['file']);
+        return MimeType::detectByFilename($this->container['filename']);
     }
 
 
@@ -176,7 +179,7 @@ class ContainerField
                     return file_get_contents($this->container['realpath']);
 
                 case 'storage':
-                    return Storage::disk($this->container['disk'])->get($this->container['file']);
+                    return Storage::disk($this->container['disk'])->get($this->container['filename']);
 
                 case 'data':
                     return $this->container['data'];
@@ -242,18 +245,34 @@ class ContainerField
     public function getCacheKey()
     {
         if (array_key_exists('url', $this->container)) {
-            return $this->container['url'];
+            $cacheKey = $this->model->getContainerFieldCacheKeyFormat($this);
+            $cacheKey = str_replace(':field', $this->key, $cacheKey);
+            $cacheKey = str_replace(':filename', $this->container['filename'], $cacheKey);
+            $cacheKey = str_replace(':url', $this->container['url'], $cacheKey);
+            $cacheKey = str_replace(
+                ':recordId',
+                $this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID),
+                $cacheKey
+            );
+            $cacheKey = str_replace(
+                ':modificationId',
+                $this->model->getFileMakerMetaData(Model::FILEMAKER_MODIFICATION_ID),
+                $cacheKey
+            );
+            return $cacheKey;
         }
         return null;
     }
 
-    /**
-     * to use the cache, it must be enabled, and a record it (as retrieved from the server) must be set
+    /** ContainerFields are cachable if the data origin is the server and the necessary fields
+     * are set (ie, a cache time)
      * @return bool
      */
     public function isCachable()
     {
-        return 0 < $this->model->getContainerFieldCacheTime() && !empty($this->getCacheKey());
+        return $this->origin == 'server'
+        && 0 < $this->model->getContainerFieldCacheTime()
+        && !empty($this->getCacheKey());
     }
 
     protected function saveToCache()
@@ -269,7 +288,7 @@ class ContainerField
                 break;
 
             case 'storage':
-                $data = Storage::disk($this->container['disk'])->get($this->container['file']);
+                $data = Storage::disk($this->container['disk'])->get($this->container['filename']);
                 break;
 
             default:
