@@ -13,8 +13,9 @@ class RecordExtractor
         $this->metaKey = $metaKey;
     }
 
-    public static function forModel($model){
-        if (is_string($model)){
+    public static function forModel($model)
+    {
+        if (is_string($model)) {
             $model = new $model();
         }
         if (!($model instanceof Model)) {
@@ -27,23 +28,21 @@ class RecordExtractor
      * @param $result Result as returned from filemaker command
      * @return array
      */
-    public function processResult($result){
+    public function processResult($result)
+    {
         $rows = [];
 
-        if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {
-
-            foreach($result->getRecords() as $record) {
-
+        if (!FileMaker::isError($result) && $result->getFetchCount() > 0) {
+            foreach ($result->getRecords() as $record) {
                 $row = $this->extractRecordFields($record);
 
                 $row[$this->metaKey] = (object)[
-                    Model::FILEMAKER_RECORD_ID 			=> $record->getRecordId(),
-                    Model::FILEMAKER_MODIFICATION_ID	=> $record->getModificationId()
+                    Model::FILEMAKER_RECORD_ID          => $record->getRecordId(),
+                    Model::FILEMAKER_MODIFICATION_ID    => $record->getModificationId()
                 ];
 
                 $rows[] = (object)$row;
             }
-
         }
 
         return $rows;
@@ -52,8 +51,8 @@ class RecordExtractor
     public function extractRecordFields($record)
     {
         $attributes = [];
-        foreach($record->getFields() as $field){
-            if ($field){
+        foreach ($record->getFields() as $field) {
+            if ($field) {
                 $attributes[$field] = $record->getField($field);
             }
         }

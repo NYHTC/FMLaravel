@@ -6,205 +6,214 @@ use FMLaravel\Database\ContainerField\ContainerField;
 use \Exception;
 use Symfony\Component\HttpFoundation\File\File;
 
-abstract class Model extends Eloquent {
+abstract class Model extends Eloquent
+{
 
-	// disable default timestamps
-	public $timestamps = false;
+    // disable default timestamps
+    public $timestamps = false;
 
-	const FILEMAKER_RECORD_ID = "recordId";
-	const FILEMAKER_MODIFICATION_ID = "modificationId";
+    const FILEMAKER_RECORD_ID = "recordId";
+    const FILEMAKER_MODIFICATION_ID = "modificationId";
 
-	protected $fileMakerMetaKey = "__FileMaker__";
+    protected $fileMakerMetaKey = "__FileMaker__";
 
-	protected $containerFields = [];
-	protected $containerFieldsAutoload = false;
-//	protected $containerFieldsCacheStore = 'file'; // override property
-//	protected $containerFieldsCacheTime = 1;		  // override property
-
-
-	/**
-	 * Get a new query builder instance for the connection.
-	 *
-	 * @return \Illuminate\Database\Query\Builder
-	 */
-	protected function newBaseQueryBuilder()
-	{
-		$conn = $this->getConnection();
-
-		$grammar = $conn->getQueryGrammar();
-
-		$query = new QueryBuilder($conn, $grammar, $conn->getPostProcessor());
-
-		return $query->setModel($this);
-	}
-
-	/**
-	 * Get the table qualified key name.
-	 * return plain key name without the table
-	 * 
-	 * @return string
-	 */
-	public function getQualifiedKeyName()
-	{
-		return $this->getKeyName();
-	}
-
-	public function getTable()
-	{
-		return $this->getLayoutName();
-	}
-
-	public function getLayoutName()
-	{
-		return $this->layoutName;
-	}
-
-	public function setLayoutName($layout)
-	{
-		$this->layoutName = $layout;
-	}
-
-	public function getLayout()
-	{
-		return $this->layout;
-	}
-
-	public function setLayout($layout)
-	{
-		$this->layout = $layout;
-	}
+    protected $containerFields = [];
+    protected $containerFieldsAutoload = false;
+//    protected $containerFieldsCacheStore = 'file'; // override property
+//    protected $containerFieldsCacheTime = 1;          // override property
 
 
+    /**
+     * Get a new query builder instance for the connection.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    protected function newBaseQueryBuilder()
+    {
+        $conn = $this->getConnection();
 
-	public function getFileMakerMetaKey(){
-		return $this->fileMakerMetaKey;
-	}
+        $grammar = $conn->getQueryGrammar();
 
-	public function getFileMakerMetaData($key = null){
-		if (!array_key_exists($this->fileMakerMetaKey,$this->attributes)) {
-			$this->setFileMakerMetaDataArray([]);
-		}
-		$meta = $this->getAttributeFromArray($this->getFileMakerMetaKey());
-		if ($key === null){
-			return $meta;
-		}
-		return $meta->$key;
-	}
+        $query = new QueryBuilder($conn, $grammar, $conn->getPostProcessor());
 
-	public function setFileMakerMetaDataArray(array $values){
-		$this->setAttribute($this->getFileMakerMetaKey(), (object)$values);
-	}
+        return $query->setModel($this);
+    }
 
-	public function setFileMakerMetaData($key, $value){
-		$this->getFileMakerMetaData()->$key = $value;
-	}
+    /**
+     * Get the table qualified key name.
+     * return plain key name without the table
+     *
+     * @return string
+     */
+    public function getQualifiedKeyName()
+    {
+        return $this->getKeyName();
+    }
+
+    public function getTable()
+    {
+        return $this->getLayoutName();
+    }
+
+    public function getLayoutName()
+    {
+        return $this->layoutName;
+    }
+
+    public function setLayoutName($layout)
+    {
+        $this->layoutName = $layout;
+    }
+
+    public function getLayout()
+    {
+        return $this->layout;
+    }
+
+    public function setLayout($layout)
+    {
+        $this->layout = $layout;
+    }
 
 
 
+    public function getFileMakerMetaKey()
+    {
+        return $this->fileMakerMetaKey;
+    }
 
-	/**
-	 * Get a plain attribute (not a relationship).
-	 *
-	 * @param  string  $key
-	 * @return mixed
-	 */
-	public function getAttributeValue($key)
-	{
-		$value = parent::getAttributeValue($key);
+    public function getFileMakerMetaData($key = null)
+    {
+        if (!array_key_exists($this->fileMakerMetaKey, $this->attributes)) {
+            $this->setFileMakerMetaDataArray([]);
+        }
+        $meta = $this->getAttributeFromArray($this->getFileMakerMetaKey());
+        if ($key === null) {
+            return $meta;
+        }
+        return $meta->$key;
+    }
 
-		if ($this->isContainerField($key) && !($value instanceof ContainerField)){
-			$value = $this->asContainerField($key, $value, $this->containerFieldsAutoload);
-		}
+    public function setFileMakerMetaDataArray(array $values)
+    {
+        $this->setAttribute($this->getFileMakerMetaKey(), (object)$values);
+    }
 
-		return $value;
-	}
+    public function setFileMakerMetaData($key, $value)
+    {
+        $this->getFileMakerMetaData()->$key = $value;
+    }
 
-	/**
-	 * Set a given attribute on the model.
-	 *
-	 * @param  string  $key
-	 * @param  mixed  $value
-	 * @return $this
-	 */
-	public function setAttribute($key, $value)
-	{
-		if ($this->isContainerField($key)){
-			// require a container field to be either of the following:
-			if (empty($value)){
-				$this->attributes[$key] = null;
-			}
-			elseif (is_string($value)){
-				// treat value as a realpath, as the most likely scenario entails developers wanting file uploads to be stored to the FM server
-				$value = ContainerField::fromRealpath($value);
-			}
-			elseif ($value instanceof File){
-				$value = ContainerField::fromRealpath($value->getRealPath());
-			}
-			if ($value instanceof ContainerField){
 
-				// associate container field with this model
-				$value->setModel($this);
 
-				// make sure the container field knows to which field it belongs
-				$value->setKey($key);
 
-				if (method_exists($this,'containerFieldSetMutator')){
-					return $this->containerFieldSetMutator($key, $value);
-				} else {
-					$this->attributes[$key] = $value;
-				}
-			}
-			else {
-				throw new Exception("Settings a container field to a type of ". gettype($value) . "is currently not supported.");
-			}
-		} else {
-			parent::setAttribute($key, $value);
-		}
+    /**
+     * Get a plain attribute (not a relationship).
+     *
+     * @param  string  $key
+     * @return mixed
+     */
+    public function getAttributeValue($key)
+    {
+        $value = parent::getAttributeValue($key);
 
-		return $this;
-	}
+        if ($this->isContainerField($key) && !($value instanceof ContainerField)) {
+            $value = $this->asContainerField($key, $value, $this->containerFieldsAutoload);
+        }
 
-	public function isContainerField($key){
-		return in_array($key, $this->containerFields);
-	}
+        return $value;
+    }
 
-	public function getContainerField($key, $loadFromServer = FALSE){
-		return $this->asContainerField($key, $this->getAttributeFromArray($key), $loadFromServer);
-	}
+    /**
+     * Set a given attribute on the model.
+     *
+     * @param  string  $key
+     * @param  mixed  $value
+     * @return $this
+     */
+    public function setAttribute($key, $value)
+    {
+        if ($this->isContainerField($key)) {
+            // require a container field to be either of the following:
+            if (empty($value)) {
+                $this->attributes[$key] = null;
+            } elseif (is_string($value)) {
+                // treat value as a realpath, as the most likely scenario entails developers wanting file uploads to
+                // be stored to the FM server
+                $value = ContainerField::fromRealpath($value);
+            } elseif ($value instanceof File) {
+                $value = ContainerField::fromRealpath($value->getRealPath());
+            }
+            if ($value instanceof ContainerField) {
+                // associate container field with this model
+                $value->setModel($this);
 
-	public function asContainerField($key, $url, $loadFromServer = FALSE){
-		$cf = ContainerField::fromServer($key, $url, $this);
-		if ($loadFromServer && !empty($url)) {
-			$cf->loadData();
-		}
-		return $cf;
-	}
+                // make sure the container field knows to which field it belongs
+                $value->setKey($key);
 
-	public function getContainerFieldCacheStore(){
-		// first try field overrider
-		if (property_exists($this, 'containerFieldsCacheStore')) {
-			return Cache::store($this->containerFieldsCacheStore);
-		}
+                if (method_exists($this, 'containerFieldSetMutator')) {
+                    return $this->containerFieldSetMutator($key, $value);
+                } else {
+                    $this->attributes[$key] = $value;
+                }
+            } else {
+                throw new Exception(
+                    "Settings a container field to a type of ". gettype($value) . "is currently not supported."
+                );
+            }
+        } else {
+            parent::setAttribute($key, $value);
+        }
 
-		// second try connection configuration
-		$store = $this->getConnection()->getConfig('cacheStore');
-		if (empty($store)){
-			return Cache::store($store);
-		}
+        return $this;
+    }
 
-		// last just return default store
-		return Cache::store();
-	}
+    public function isContainerField($key)
+    {
+        return in_array($key, $this->containerFields);
+    }
 
-	public function getContainerFieldCacheTime(){
-		if (property_exists($this,'containerFieldsCacheTime')){
-			return $this->containerFieldsCacheTime;
-		}
-		return $this->getConnection()->getConfig('cacheTime');
-	}
+    public function getContainerField($key, $loadFromServer = false)
+    {
+        return $this->asContainerField($key, $this->getAttributeFromArray($key), $loadFromServer);
+    }
 
-	public function updateContainerFields(array $values){
-		throw new Exception("updateContainerFields has not yet been implemented for this model");
-	}
+    public function asContainerField($key, $url, $loadFromServer = false)
+    {
+        $cf = ContainerField::fromServer($key, $url, $this);
+        if ($loadFromServer && !empty($url)) {
+            $cf->loadData();
+        }
+        return $cf;
+    }
 
+    public function getContainerFieldCacheStore()
+    {
+        // first try field overrider
+        if (property_exists($this, 'containerFieldsCacheStore')) {
+            return Cache::store($this->containerFieldsCacheStore);
+        }
+
+        // second try connection configuration
+        $store = $this->getConnection()->getConfig('cacheStore');
+        if (empty($store)) {
+            return Cache::store($store);
+        }
+
+        // last just return default store
+        return Cache::store();
+    }
+
+    public function getContainerFieldCacheTime()
+    {
+        if (property_exists($this, 'containerFieldsCacheTime')) {
+            return $this->containerFieldsCacheTime;
+        }
+        return $this->getConnection()->getConfig('cacheTime');
+    }
+
+    public function updateContainerFields(array $values)
+    {
+        throw new Exception("updateContainerFields has not yet been implemented for this model");
+    }
 }

@@ -6,15 +6,18 @@ use FMLaravel\Script\Script;
 
 trait RunBase64UploaderScriptOnSave
 {
-    protected function getContainerFieldUploaderScriptLayout(){
+    protected function getContainerFieldUploaderScriptLayout()
+    {
         return $this->getLayoutName();
     }
 
-    protected function getContainerFieldUploaderScriptName(){
+    protected function getContainerFieldUploaderScriptName()
+    {
         return $this->containerFieldUploaderScriptName;
     }
 
-    public function updateContainerFields(array $values){
+    public function updateContainerFields(array $values)
+    {
         $primaryKeyValue = $this->getAttribute($this->getKeyName());
 
         $paramsStart = [
@@ -23,15 +26,15 @@ trait RunBase64UploaderScriptOnSave
             count($values),
         ];
 
-        $paramsList = array_map(function($k,$cf){
+        $paramsList = array_map(function ($k, $cf) {
             return $k . "\n" . $cf->file . "\n" . base64_encode($cf->data);
         }, array_keys($values), $values);
 
-        $params = array_merge($paramsStart,$paramsList);
+        $params = array_merge($paramsStart, $paramsList);
 
-        $script = new Script(RecordExtractor::forModel($this), function($params){
-            if (is_array($params)){
-                return implode("\n",$params);
+        $script = new Script(RecordExtractor::forModel($this), function ($params) {
+            if (is_array($params)) {
+                return implode("\n", $params);
             }
             return $params;
         });
@@ -47,12 +50,12 @@ trait RunBase64UploaderScriptOnSave
         $record = reset($result);
 
         // for each of the passed container fields
-        array_walk($values,function(ContainerField $cf,$k)use($record){
+        array_walk($values, function (ContainerField $cf, $k) use ($record) {
             $cf->didSaveToServer($record->$k);
         });
 
         $meta = (array)$this->getFileMakerMetaData();
-        $meta = array_merge($meta, (array)$record->{$this->getFileMakerMetaKey()} );
+        $meta = array_merge($meta, (array)$record->{$this->getFileMakerMetaKey()});
         $this->setFileMakerMetaDataArray($meta);
     }
 }

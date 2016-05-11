@@ -5,24 +5,27 @@ use FMLaravel\Support\Script;
 
 trait RunScriptOnSave
 {
-    protected function getContainerFieldUploaderScriptLayout(){
+    protected function getContainerFieldUploaderScriptLayout()
+    {
         return $this->getLayoutName();
     }
 
-    protected function getContainerFieldUploaderScriptName(){
+    protected function getContainerFieldUploaderScriptName()
+    {
         return $this->containerFieldUploaderScriptName;
     }
 
-    public function updateContainerFields(array $values){
+    public function updateContainerFields(array $values)
+    {
         $primaryKeyValue = $this->getAttribute($this->getKeyName());
 
         $fields = array_keys($values);
 
-        $params = array_unshift($fields,$primaryKeyValue);
+        $params = array_unshift($fields, $primaryKeyValue);
 
-        $script = new Script(RecordExtractor::forModel($this), function($params){
-            if (is_array($params)){
-                return implode("\n",$params);
+        $script = new Script(RecordExtractor::forModel($this), function ($params) {
+            if (is_array($params)) {
+                return implode("\n", $params);
             }
             return $params;
         });
@@ -38,13 +41,13 @@ trait RunScriptOnSave
         $record = reset($result);
 
         // for each of the passed container fields
-        array_walk($values,function(ContainerField $cf,$k)use($record){
+        array_walk($values, function (ContainerField $cf, $k) use ($record) {
             // well, it depends on what the script actually does :)
             // this is more of a sample implementation, also see RunBase64UploaderScriptOnSave
         });
 
         $meta = (array)$this->getFileMakerMetaData();
-        $meta = array_merge($meta, (array)$record->{$this->getFileMakerMetaKey()} );
+        $meta = array_merge($meta, (array)$record->{$this->getFileMakerMetaKey()});
         $this->setFileMakerMetaDataArray($meta);
 
 

@@ -30,7 +30,8 @@ class ContainerField
 
 
 
-    protected function __construct($origin, $key = null, Model $model = null) {
+    protected function __construct($origin, $key = null, Model $model = null)
+    {
         $this->origin = $origin;
         $this->key = $key;
         $this->model = $model;
@@ -42,8 +43,9 @@ class ContainerField
      * @param Connection|null $connection
      * @return ContainerField
      */
-    static public function fromServer($key, $url, Model $model = null) {
-        if (empty($url)){
+    public static function fromServer($key, $url, Model $model = null)
+    {
+        if (empty($url)) {
             return null;
         }
 
@@ -58,7 +60,8 @@ class ContainerField
         return $cf;
     }
 
-    static public function fromStorage($filename, $disk = null){
+    public static function fromStorage($filename, $disk = null)
+    {
 
         $cf = new ContainerField('storage');
 
@@ -69,7 +72,8 @@ class ContainerField
         return $cf;
     }
 
-    static public function fromRealpath($realpath, $filename = null){
+    public static function fromRealpath($realpath, $filename = null)
+    {
 
         $cf = new ContainerField('realpath');
 
@@ -84,7 +88,8 @@ class ContainerField
         return $cf;
     }
 
-    static public function withData($filename, $rawData){
+    public static function withData($filename, $rawData)
+    {
 
         $cf = new ContainerField('data');
 
@@ -97,32 +102,35 @@ class ContainerField
 
 
 
-    public function getModel(){
+    public function getModel()
+    {
         return $this->model;
     }
-    public function setModel(Model $model){
+    public function setModel(Model $model)
+    {
         $this->model = $model;
         return $this;
     }
-    public function getKey(){
+    public function getKey()
+    {
         return $this->key;
     }
-    public function setKey($key){
+    public function setKey($key)
+    {
         $this->key = $key;
         return $this;
     }
 
 
-    public function __get($name){
+    public function __get($name)
+    {
         // container field data is treated specially
-        if ($name == 'data'){
-            switch($this->origin){
+        if ($name == 'data') {
+            switch ($this->origin) {
                 case 'server':
-
                     if (!$this->hasLoadedServerData()) {
-
                         // if cache is enabled, check it first, and possibly retrieve server
-                        if ($this->isCachable()){
+                        if ($this->isCachable()) {
                             $key = $this->getCacheKey();
                             $store = $this->model->getContainerFieldCacheStore();
 
@@ -147,39 +155,41 @@ class ContainerField
 
                 case 'data':
                     return $this->container['data'];
-
             }
-        }
-        else if (isset($this->container[$name])){
+        } elseif (isset($this->container[$name])) {
             return $this->container[$name];
         }
     }
 
 
-    public function hasLoadedServerData(){
-        return $this->origin == 'server' && array_key_exists('data',$this->container);
+    public function hasLoadedServerData()
+    {
+        return $this->origin == 'server' && array_key_exists('data', $this->container);
     }
 
-    public function loadServerData(){
-        if (!$this->hasLoadedServerData()){
+    public function loadServerData()
+    {
+        if (!$this->hasLoadedServerData()) {
             $this->container['data'] = $this->fetchServerData();
         }
     }
-    protected function fetchServerData(){
-        if ($this->origin != 'server'){
+    protected function fetchServerData()
+    {
+        if ($this->origin != 'server') {
             throw new Exception("Container data is not stored on server");
         }
-        if (empty($this->container['url'])){
-            return NULL;
+        if (empty($this->container['url'])) {
+            return null;
         }
         return $this->model->getConnection()->filemaker('read')->getContainerData($this->container['url']);
     }
 
-    public function didSaveToServer($url){
+    public function didSaveToServer($url)
+    {
 
         $this->container['url'] = $url;
 
-        if ($this->isCachable()){
+        if ($this->isCachable()) {
             $this->saveToCache();
         }
     }
@@ -189,8 +199,9 @@ class ContainerField
      * ONLY to be use
      * @return string|null
      */
-    public function getCacheKey(){
-        if (array_key_exists('url',$this->container)){
+    public function getCacheKey()
+    {
+        if (array_key_exists('url', $this->container)) {
             return $this->container['url'];
         }
         return null;
@@ -200,12 +211,14 @@ class ContainerField
      * to use the cache, it must be enabled, and a record it (as retrieved from the server) must be set
      * @return bool
      */
-    public function isCachable(){
+    public function isCachable()
+    {
         return 0 < $this->model->getContainerFieldCacheTime() && !empty($this->getCacheKey());
     }
 
-    protected function saveToCache(){
-        switch($this->origin){
+    protected function saveToCache()
+    {
+        switch ($this->origin) {
             case 'server':
             case 'data':
                 $data = $this->container['data'];
@@ -222,18 +235,10 @@ class ContainerField
             default:
                 throw new Exception("origin not supported {$this->origin}");
         }
-        $this->model->getContainerFieldCacheStore()->put($this->getCacheKey(),$data,$this->model->getContainerFieldCacheTime());
+        $this->model->getContainerFieldCacheStore()->put(
+            $this->getCacheKey(),
+            $data,
+            $this->model->getContainerFieldCacheTime()
+        );
     }
-
-    /** Gets the cache store to be used
-     * @return bool|Cache
-     */
-//    public function getCacheStore(){
-//        $store = $this->model->getContainerFieldCacheStore();
-//        if (empty($store)){
-//            return false;
-//        }
-//        return Cache::store($store);
-//    }
-
 }
