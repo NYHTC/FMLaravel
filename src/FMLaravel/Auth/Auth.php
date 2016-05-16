@@ -2,33 +2,33 @@
 
 use Session;
 
-class Auth {
+class Auth
+{
 
-	protected $app;
+    public static function check()
+    {
+        return Session::get('auth.active');
+    }
 
-	public function __construct($app)
-	{
-		$this->app = $app;
-	}
+    public function connect($username = null, $password = null)
+    {
+        Session::put('auth.username', $username);
+        Session::put('auth.password', $password);
 
-	public static function check()
-	{
-		return Session::get('auth.active');
-	}
+        $filemaker = DB::connection('filemaker')->filemaker('auth', function () {
 
-	public function connect($username = null, $password = null)
-	{
-		Session::put('auth.username', $username);
-		Session::put('auth.password', $password);
-		
-		$connection = $this->app->db->connection()->getConnection('auth');
+            $config['username'] = Session::get('auth.username');
+            $config['password'] = Session::get('auth.password');
+            $config['cache'] = false;
 
-		$layouts = $connection->listLayouts();
-		if($connection->isError($layouts)) {
-			return false;
-		}	
+            return $config;
+        });
 
-		return true;
-	}
+        $layouts = $filemaker->listLayouts();
+        if ($filemaker->isError($layouts)) {
+            return false;
+        }
 
+        return true;
+    }
 }

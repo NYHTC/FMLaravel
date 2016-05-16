@@ -2,123 +2,126 @@
 
 use Illuminate\Database\Connection as BaseConnection;
 use FileMaker;
+use Illuminate\Support\Str;
 use \Session;
+use FMLaravel\Database\LogFacade;
 
-class Connection extends BaseConnection {
+class Connection extends BaseConnection
+{
 
-	public $connection;
+    /** List of instantiated connections
+     * @var array
+     */
+    protected $connections = [];
 
-	public function __construct(array $config)
-	{
-		$this->useDefaultQueryGrammar();
+    public function __construct(array $config)
+    {
+        $this->useDefaultQueryGrammar();
 
-		$this->useDefaultPostProcessor();
+        $this->useDefaultPostProcessor();
 
-		$this->config = $config;
-	}
+        $this->config = $config;
+    }
 
-	public function getConnection($type)
-	{
-		$config = $this->config;
+    public function filemaker($type = 'default', $configMutator = null)
+    {
+        $config = $this->config;
 
-		if(isset($this->config[$type]) && $type == 'read') {
-			$config = $this->getReadConfig($this->config);
-		}
+        // if neither a particular configuration nor a configuration mutator exists, just take default connection
+        if ((!array_key_exists($type, $config) || !is_array($config[$type])) && !is_callable($configMutator)) {
+            $type = 'default';
+        }
 
-		if(isset($this->config[$type]) && $type == 'write') {
-			$config = $this->getWriteConfig($this->config);
-		}
+        // has it already been created?
+        if (isset($this->connections[$type])) {
+            return $this->connections[$type];
+        }
 
-		if(isset($this->config[$type]) && $type == 'script') {
-			$config = $this->getScriptConfig($this->config);
-		}
 
-		if($type == 'auth') {
-			$config = $this->getAuthConfig($this->config);
-		}
+        // if any particular configuration is wanted and defined load it
+        if (array_key_exists($type, $config) && is_array($config[$type])) {
+            $config = array_merge($config, $config[$type]);
+        }
 
-		return $this->createConnection($config);
-	}
+        // if there is any particular configurator passed, run it first
+        if (is_callable($configMutator)) {
+            $config = $configMutator($config);
+        }
 
-	private function createConnection($config)
-	{
-		return new FileMaker(
-			$config['database'],
-			$config['host'],
-			$config['username'],
-			$config['password']
-		);
-	}
+        $con = $this->createFileMakerConnection($config);
 
-	//override the session username and password with session veriables
-	private function getAuthConfig($config)
-	{
-		$config['username'] = Session::get('auth.username');
-		$config['password'] = Session::get('auth.password');
+        if (!array_key_exists('cache', $config) || $config['cache']) {
+            $this->connections[$type] = $con;
+        }
 
-		return $config;
-	}
+        return $con;
+    }
 
-	private function getReadConfig(array $config)
-	{
-		$readConfig = $this->getReadWriteConfig($config, 'read');
+    protected function createFileMakerConnection($config)
+    {
+        $fm = new FileMaker(
+            $config['database'],
+            $config['host'],
+            $config['username'],
+            $config['password']
+        );
 
-		return $this->mergeReadWriteConfig($config, $readConfig);
-	}
+        if (array_key_exists('logger', $config) && $config['logger'] instanceof LogFacade) {
+            $config['logger']->attachTo($fm);
+        } elseif (array_key_exists('logLevel', $config)) {
+            switch ($config['logLevel']) {
+                case 'error':
+                    LogFacade::with(FILEMAKER_LOG_ERR)->attachTo($fm);
+                    break;
+                case 'info':
+                    LogFacade::with(FILEMAKER_LOG_INFO)->attachTo($fm);
+                    break;
+                case 'debug':
+                    LogFacade::with(FILEMAKER_LOG_DEBUG)->attachTo($fm);
+                    break;
+            }
+        }
 
-	/**
-	 * Get the read configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @return array
-	 */
-	private function getWriteConfig(array $config)
-	{
-		$writeConfig = $this->getReadWriteConfig($config, 'write');
+        return $fm;
+    }
 
-		return $this->mergeReadWriteConfig($config, $writeConfig);
-	}
 
-	/**
-	 * Get the read configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @return array
-	 */
-	private function getScriptConfig(array $config)
-	{
-		$scriptConfig = $this->getReadWriteConfig($config, 'script');
+    /**
+     * Returns an array of databases that are available with the current
+     * server settings and the current user name and password
+     * credentials.
+     *
+     * @return array|FileMaker_Error List of database names or an Error object.
+     * @see FileMaker
+     */
+    public function listDatabases()
+    {
+        return $this->filemaker('read')->listDatabases();
+    }
 
-		return $this->mergeReadWriteConfig($config, $scriptConfig);
-	}
+    /**
+     * Returns an array of ScriptMaker scripts from the current database that
+     * are available with the current server settings and the current user
+     * name and password credentials.
+     *
+     * @return array|FileMaker_Error List of script names or an Error object.
+     * @see FileMaker
+     */
+    public function listScripts()
+    {
+        return $this->filemaker('read')->listScripts();
+    }
 
-	/**
-	 * Get a read / write level configuration.
-	 *
-	 * @param  array   $config
-	 * @param  string  $type
-	 * @return array
-	 */
-	private function getReadWriteConfig(array $config, $type)
-	{
-		if (isset($config[$type][0]))
-		{
-			return $config[$type][array_rand($config[$type])];
-		}
-
-		return $config[$type];
-	}
-
-	/**
-	 * Merge a configuration for a read / write connection.
-	 *
-	 * @param  array  $config
-	 * @param  array  $merge
-	 * @return array
-	 */
-	private function mergeReadWriteConfig(array $config, array $merge)
-	{
-		return array_except(array_merge($config, $merge), array('read', 'write', 'script'));
-	}
-
+    /**
+     * Returns an array of layouts from the current database that are
+     * available with the current server settings and the current
+     * user name and password credentials.
+     *
+     * @return array|FileMaker_Error List of layout names or an Error object.
+     * @see FileMaker
+     */
+    public function listLayouts()
+    {
+        return $this->filemaker('read')->listLayouts();
+    }
 }

@@ -1,137 +1,269 @@
 <?php namespace FMLaravel\Database;
 
+use FMLaravel\Database\ContainerField\ContainerField;
+use FMLaravel\Database\Model;
 use Illuminate\Database\Query\Builder;
 use \stdClass;
 use FileMaker;
+use Exception;
 
-class QueryBuilder extends Builder {
+class QueryBuilder extends Builder
+{
 
-	protected $find;
+    /**
+     * @var Model
+     */
+    protected $model;
 
-	public $skip;
+    /**
+     * @var RecordExtractor
+     */
+    protected $recordExtractor;
 
-	public $limit;
+    protected $find;
 
-	public $sorts = [];
+    public $skip;
 
-	public $compoundWhere = 1;
+    public $limit;
 
-	//this should be the method to get the results
-	public function get($columns = [])
-	{
-		if($this->containsOr()) {
-			$this->find = $this->connection->getConnection('read')->newCompoundFindCommand($this->from);
-			$find_type = 'compound';
-		} else {
-			$this->find = $this->connection->getConnection('read')->newFindCommand($this->from);
-			$find_type = 'basic';
-		}
+    public $sorts = [];
 
-		$this->parseWheres($this->wheres, $this->find, $find_type);
-		$this->addSortRules();
-		$this->setRange();
+    public $compoundWhere = 1;
 
-		$result = $this->find->execute();
+    public function setModel(Model $model)
+    {
+        $this->model = $model;
 
-		$rows = [];
+        $this->recordExtractor = RecordExtractor::forModel($model);
 
-		if(!FileMaker::isError($result) && $result->getFetchCount() > 0) {
+        return $this;
+    }
 
-			foreach($result->getRecords() as $record) {
+    //this should be the method to get the results
+    public function get($columns = [])
+    {
+        if ($this->containsOr()) {
+            $this->find = $this->connection->filemaker('read')->newCompoundFindCommand($this->model->getLayoutName());
+            $find_type = 'compound';
+        } else {
+            $this->find = $this->connection->filemaker('read')->newFindCommand($this->model->getLayoutName());
+            $find_type = 'basic';
+        }
 
-				$row = new stdClass();
+        $this->parseWheres($this->wheres, $this->find, $find_type);
+        $this->addSortRules();
+        $this->setRange();
 
-				foreach($result->getFields() as $field) {
-					if($field) {
-						$row->$field = $record->getField($field);
-					}
-				}
+        $result = $this->find->execute();
 
-				$rows[] = $row;
-			}
+        /* check if error occurred.
+         * This wonderful FileMaker API considers no found entries as an error with code 401 which is why we have
+         * to make this ridiculous exception. Shame on them, really.
+         */
+        if (FileMaker::isError($result) && !in_array($result->getCode(), ['401'])) {
+            throw FileMakerException::newFromError($result);
+        }
 
-		}
+        return $this->recordExtractor->processResult($result);
+    }
 
-		return $rows;
+    public function skip($skip)
+    {
+        $this->skip = $skip;
 
-	}
+        return $this;
+    }
 
-	public function skip($skip)
-	{
-		$this->skip = $skip;
+    public function limit($limit)
+    {
+        $this->limit = $limit;
 
-		return $this;
-	}
+        return $this;
+    }
 
-	public function limit($limit)
-	{
-		$this->limit = $limit;
+    private function parseWheres($wheres, $find, $find_type)
+    {
+        if (!$wheres) {
+            return;
+        }
 
-		return $this;
-	}
+        foreach ($wheres as $where) {
+            if ($find_type == 'compound') {
+                $request = $this->connection->filemaker('read')->newFindRequest($this->model->getLayoutName());
+                $this->parseWheres([$where], $request, 'basic');
+                $find->add($this->compoundWhere, $request);
+                $this->compoundWhere++;
+            } else {
+                if ($where['type'] == 'Nested') {
+                    $this->parseWheres($where['query']->wheres, $find, $find_type);
+                } else {
+                    $find->AddFindCriterion(
+                        $where['column'],
+                        $where['operator'] . $where['value']
+                    );
+                }
+            }
+        }
+    }
 
-	private function parseWheres($wheres, $find, $find_type)
-	{
-		if(!$wheres) return;
+    public function setRange()
+    {
+        $this->find->setRange($this->skip, $this->limit);
 
-		foreach($wheres as $where) {
-			if($find_type == 'compound') {
-				$request = $this->connection->getConnection('read')->newFindRequest($this->from);
-				$this->parseWheres([$where], $request, 'basic');
-				$find->add($this->compoundWhere, $request);
-				$this->compoundWhere++;
-			} else {
-				if($where['type'] == 'Nested') {
-					$this->parseWheres($where['query']->wheres, $find, $find_type);
-				} else {
-			    	$find->AddFindCriterion(
-			    		$where['column'],
-			    		$where['operator'] . $where['value']
-			    	);
-				}
-			}
-		}
-	}
+        return $this;
+    }
 
-	public function setRange()
-	{
-		$this->find->setRange($this->skip, $this->limit);
+    public function sortBy($fields, $order = 'asc')
+    {
+        if (!is_array($fields)) {
+            $this->sorts[$fields] = $order;
+        } else {
+            foreach ($fields as $field) {
+                $this->sorts[$field] = 'asc';
+            }
+        }
 
-		return $this;
-	}
+        return $this;
+    }
 
-	public function sortBy($fields, $order = 'asc')
-	{
-		if(!is_array($fields)) {
-			$this->sorts[$fields] = $order;
-		} else {
-			foreach($fields as $field) {
-				$this->sorts[$field] = 'asc';
-			}
-		}
+    private function addSortRules()
+    {
+        $i = 1;
+        foreach ($this->sorts as $field => $order) {
+            $order = $order == 'desc' ? FILEMAKER_SORT_DESCEND : FILEMAKER_SORT_ASCEND;
+            $this->find->addSortRule($field, $i, $order);
+            $i++;
+        }
+    }
 
-		return $this;
-	}
+    /**
+     * Check to see if the wheres array contains any "or" type wheres
+     * @return boolean
+     */
+    private function containsOr()
+    {
+        if (!$this->wheres) {
+            return false;
+        }
 
-	private function addSortRules()
-	{
-		$i = 1;
-		foreach($this->sorts as $field => $order) {
-			$order = $order == 'desc' ? FILEMAKER_SORT_DESCEND : FILEMAKER_SORT_ASCEND;
-			$this->find->addSortRule($field, $i, $order);
-			$i++;
-		}
-	}
+        return in_array('or', array_pluck($this->wheres, 'boolean'));
+    }
 
-	/**
-	 * Check to see if the wheres array contains any "or" type wheres
-	 * @return boolean
-	 */
-	private function containsOr()
-	{
-		if(!$this->wheres) return false;
 
-		return in_array('or', array_pluck($this->wheres, 'boolean'));
-	}
+    public function delete($id = null)
+    {
+        if (! is_null($id)) {
+            throw new FileMakerException("this delete mode is not supported!");
+        }
 
+        $command = $this->connection->filemaker('write')->newDeleteCommand(
+            $this->model->getLayoutName(),
+            $this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID)
+        );
+        $result = $command->execute();
+
+        if (\FileMaker::isError($result)) {
+            throw FileMakerException::newFromError($result);
+        }
+
+        return true;
+    }
+
+    public function update(array $values)
+    {
+        /**
+         * separate container fields from other fields
+         * Container fields that are set to an empty value will delete the current data
+         */
+        $cfValues = array_filter($values, function ($v) {
+            return $v instanceof ContainerField;
+        });
+        $values = array_diff_key($values, $cfValues);
+
+        // first update any non-ContainerFields
+        if (!empty($values)) {
+            $command = $this->connection->filemaker('write')->newEditCommand(
+                $this->model->getLayoutName(),
+                $this->model->getFileMakerMetaData(Model::FILEMAKER_RECORD_ID),
+                $values
+            );
+            $result = $command->execute();
+
+            if (\FileMaker::isError($result)) {
+                throw FileMakerException::newFromError($result);
+            }
+
+            $record = reset($result->getRecords());
+
+            // because setRawAttributes overwrites the whole array, we have to save the meta data before.
+            $meta = (array)$this->model->getFileMakerMetaData();
+
+            $this->model->setRawAttributes($this->recordExtractor->extractRecordFields($record));
+
+            $meta[Model::FILEMAKER_MODIFICATION_ID] = $record->getModificationId();
+            $this->model->setFileMakerMetaDataArray($meta);
+        }
+
+        // now also save container fields
+        if (!empty($cfValues)) {
+            $this->model->updateContainerFields($cfValues);
+        }
+
+
+        return true;
+    }
+
+
+    public function insert(array $values)
+    {
+        return !empty($this->insertGetId($values));
+    }
+
+
+    /**
+     * Insert a new record and get the value of the primary key.
+     *
+     * @param  array   $values
+     * @param  string  $sequence
+     * @return int
+     */
+    public function insertGetId(array $values, $sequence = null)
+    {
+        /**
+         * separate container fields from other fields
+         * Container fields that are set to an empty value will delete the current data
+         */
+        $cfValues = array_filter($values, function ($v) {
+            return $v instanceof ContainerField;
+        });
+        $values = array_diff_key($values, $cfValues);
+
+        // first update any non-ContainerFields (even if no attributes set!)
+        $command = $this->connection->filemaker('write')->newAddCommand(
+            $this->model->getLayoutName(),
+            $values
+        );
+        $result = $command->execute();
+
+        if (\FileMaker::isError($result)) {
+            throw FileMakerException::newFromError($result);
+        }
+
+        $record = reset($result->getRecords());
+
+        $this->model->setRawAttributes($this->recordExtractor->extractRecordFields($record));
+
+        $meta = [
+            Model::FILEMAKER_RECORD_ID            => $record->getRecordId(),
+            Model::FILEMAKER_MODIFICATION_ID    => $record->getModificationId()
+        ];
+        $this->model->setFileMakerMetaDataArray($meta);
+
+        // now also save container fields
+        if (!empty($cfValues)) {
+            $this->model->updateContainerFields($cfValues);
+        }
+
+        return $record->getField($this->model->getKeyName());
+    }
 }
