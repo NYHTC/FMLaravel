@@ -179,7 +179,7 @@ abstract class Model extends Eloquent
 
         // second try connection configuration
         $store = $this->getConnection()->getConfig('cacheStore');
-        if (empty($store)) {
+        if (!empty($store)) {
             return Cache::store($store);
         }
 
