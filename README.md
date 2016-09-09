@@ -16,7 +16,7 @@ Once Composer finishes the instalation you will need to give Laravel write acces
 
 In your text editor open composer.json and add the following line to the "require" section of the file.  This will tell Composer that your project requires FMLaravel.
 
-	"andrewmile/fm-laravel": "0.3.*"
+	"andrewmile/fm-laravel": "0.4.*"
 
 Run the following command in terminal to install FMLaravel
 
