@@ -1,4 +1,4 @@
-# Instalation
+# Installation
 
 ## Install the Laravel framework
 
